@@ -1,5 +1,6 @@
 # Claude export inputs
 *.zip
+*.rar
 manifest-*.json
 
 # Restored exports and historical extraction workspaces

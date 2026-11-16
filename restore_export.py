@@ -686,7 +686,10 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
                         if message_date:
                             path_dates.setdefault(key, []).append(message_date)
             elif name in PRESENT_TOOLS:
-                for raw_path in inp.get("filepaths") or []:
+                presented_paths = inp.get("filepaths") or inp.get("files") or []
+                if inp.get("file_path"):
+                    presented_paths = [*presented_paths, inp["file_path"]]
+                for raw_path in presented_paths:
                     if not any(item.get("file_path") == raw_path for item in presented):
                         presented.append({"message_uuid": message.get("uuid"), "tool": name, "uuid": None, "file_path": raw_path, "name": Path(str(raw_path)).stem, "mime_type": None, "bytes_in_export": False})
 
