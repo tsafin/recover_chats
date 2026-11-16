@@ -1,0 +1,29 @@
+# Claude export inputs
+*.zip
+manifest-*.json
+
+# Restored exports and historical extraction workspaces
+/restored_export*/
+/extracted_data/
+/.google_ai/
+
+# User-provided screenshots kept beside an export
+/*.png
+
+# Regenerated document artifacts
+*.pptx
+*.docx
+*.xlsx
+*.odt
+*.ods
+*.odp
+*.pdf
+
+# Local runtimes and caches
+/.venv/
+node_modules/
+__pycache__/
+*.py[cod]
+
+# Local validation/runtime leftovers
+runtime/
