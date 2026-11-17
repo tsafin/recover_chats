@@ -2,6 +2,8 @@
 
 Этот документ — самодостаточная инструкция для человека или LLM-агента, который впервые видит этот каталог. Он описывает полный процесс: распаковку нового экспорта Claude, восстановление структуры диалогов и созданных в них файлов, попытку повторной генерации PPTX/DOCX/XLSX, обновление HTML-интерфейса и итоговую проверку.
 
+Поддерживаются **Linux/WSL** и **Windows** (с нативным Python, Node.js и инструментами, установленными через winget).
+
 ## 1. Что находится в этом каталоге
 
 Рабочие скрипты:
@@ -12,6 +14,12 @@
 - `regenerate_recipe_docx.py` — воспроизведение многошаговых DOCX-рецептов, сохранённых в tool calls (TeX, рисунки, Pandoc и `python-docx`);
 - `regenerate_known_office.py` — воспроизведение явно проверенных рецептов и точных операций переименования для известных DOCX/XLSX этого экспорта;
 - `check_restoration.py` — проверка локальных ссылок и целостности полученных Office-файлов.
+
+Вспомогательные файлы:
+
+- `winenv.py` — кроссплатформенный модуль для автоматического обнаружения инструментов, установленных через winget на Windows, и корректной подстановки путей в генерируемый исходный код;
+- `install_deps_windows.ps1` — PowerShell-скрипт для автоматической установки всех системных и языковых зависимостей на Windows через winget, pip и npm;
+- `restore_all.bat` — один командный файл для запуска всего процесса на Windows от первого прохода до проверки.
 
 Главный результат — каталог, переданный через `--output`. В примерах ниже он называется `restored_export_new`.
 
@@ -43,31 +51,85 @@ new_export/
 
 ## 3. Требования к среде
 
-Минимально необходимы:
+### 3.1. Минимальные требования (все платформы)
 
 - Python 3.10 или новее;
 - пакет `markdown-it-py` для HTML-рендеринга Markdown;
-- достаточно свободного места: результат может быть значительно больше суммарного размера ZIP;
-- для перегенерации Node.js-файлов — `node` и `npm`;
-- для Python-генераторов Office — используемые ими библиотеки.
-- для DOCX-рецептов — Pandoc, TeX Live с TikZ/PGFPlots, Poppler и, для визуальной проверки, LibreOffice Writer в headless-варианте.
+- достаточно свободного места: результат может быть значительно больше суммарного размера ZIP.
 
-Рекомендуется работать в Linux/WSL или в изолированном контейнере.
+### 3.2. Для перегенерации Office-файлов (опционально)
 
-### Рекомендуемая установка Python-зависимостей
+Дополнительные пакеты и инструменты нужны только если вы хотите повторно сгенерировать PPTX/DOCX/XLSX из восстановленных исходников и команд. Чаты, текст и метаданные восстанавливаются без них.
 
-Из корня этого проекта:
+**Python-библиотеки** (все платформы):
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install --upgrade pip
-python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas pillow cairosvg
+python -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas numpy pillow
 ```
 
-Для одного только основного восстановления достаточно `markdown-it-py`. Остальные пакеты нужны возможным генераторам, извлечённым из диалогов. `cairosvg` преобразует восстановленные SVG-схемы в PNG перед их встраиванием в DOCX.
+**Node.js** (для PPTX/DOCX-генераторов на `pptxgenjs` и `docx`):
 
-### Системные зависимости для DOCX-рецептов на Ubuntu/WSL
+- `node` 18+ и `npm`;
+- пакеты: `pptxgenjs@3.12.0`, `docx@9.5.1`, `react`, `react-dom`, `react-icons`, `sharp`.
+
+**Системные инструменты** (для DOCX-рецептов с TeX/Pandoc):
+
+- `pandoc` — преобразование Markdown/LaTeX в DOCX;
+- `pdflatex` (TeX Live или MiKTeX) — компиляция TikZ/PGFPlots-рисунков;
+- `pdftoppm` (Poppler) — преобразование PDF-рисунков в PNG;
+- `libreoffice`/`soffice` — дополнительная визуальная проверка DOCX.
+
+### 3.3. Установка зависимостей на Windows
+
+#### Автоматическая установка (рекомендуется)
+
+Запустите PowerShell-скрипт из каталога `recover_chats`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File recover_chats\install_deps_windows.ps1
+```
+
+Скрипт в silent-режиме (без интерактивного ввода) установит через `winget`:
+
+| Инструмент | winget ID | Назначение |
+|---|---|---|
+| Pandoc 3.14 | `JohnMacFarlane.Pandoc` | Markdown/LaTeX → DOCX |
+| Poppler 25.07 | `oschwartz10612.Poppler` | PDF → PNG (`pdftoppm`) |
+| MiKTeX 25.12 | `MiKTeX.MiKTeX` | `pdflatex`, TikZ, PGFPlots |
+| LibreOffice 26.8 | `TheDocumentFoundation.LibreOffice` | Проверка DOCX → PDF |
+
+И через `pip` — все Python-библиотеки.
+
+После первого прохода `restore_export.py` установите npm-пакеты:
+
+```cmd
+npm install --prefix restored_export_new\runtime pptxgenjs@3.12.0 docx@9.5.1 react react-dom react-icons sharp --no-audit --no-fund
+```
+
+#### Ручная установка по одной команде
+
+```cmd
+winget install --id JohnMacFarlane.Pandoc --accept-package-agreements --accept-source-agreements
+winget install --id oschwartz10612.Poppler --accept-package-agreements --accept-source-agreements
+winget install --id MiKTeX.MiKTeX --accept-package-agreements --accept-source-agreements
+winget install --id TheDocumentFoundation.LibreOffice --accept-package-agreements --accept-source-agreements
+```
+
+Флаги `--accept-package-agreements --accept-source-agreements` делают установку полностью неинтерактивной.
+
+#### Как скрипты находят инструменты на Windows
+
+Инструменты, установленные через winget, помещаются в per-user каталоги (`%LOCALAPPDATA%`), которые не всегда добавляются в `PATH` в неинтерактивных сессиях. Модуль `winenv.py` автоматически:
+
+1. Находит Pandoc в `%LOCALAPPDATA%\Pandoc\`;
+2. Находит MiKTeX в `%LOCALAPPDATA%\Programs\MiKTeX\miktex\bin\x64\`;
+3. Находит Poppler в winget-каталоге пакетов по шаблону `oschwartz10612.Poppler_*`;
+4. Находит LibreOffice в `C:\Program Files\LibreOffice\program\`;
+5. Добавляет найденные каталоги в `PATH` текущего процесса Python.
+
+Все скрипты (`regenerate_*.py`) импортируют `winenv` и вызывают `ensure_tools_on_path()` при запуске — вручную настраивать `PATH` не нужно.
+
+### 3.4. Установка зависимостей на Linux/WSL
 
 ```bash
 sudo apt-get update
@@ -83,28 +145,38 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   default-jre-headless
 ```
 
+Python:
+
+```bash
+python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas numpy pillow cairosvg
+```
+
+Node.js:
+
+```bash
+npm install --prefix restored_export_new/runtime pptxgenjs@3.12.0 docx@9.5.1 react react-dom react-icons sharp --no-audit --no-fund
+```
+
 Назначение пакетов:
 
 - `pandoc` преобразует подготовленный LaTeX в DOCX;
 - `texlive-latex-extra`, `texlive-pictures` и `texlive-fonts-recommended` дают `pdflatex`, TikZ, PGFPlots и шрифтовые пакеты;
-- `texlive-extra-utils` содержит дополнительные TeX-утилиты, включая `pdfcrop`, встречающийся в ранних версиях рецептов;
+- `texlive-extra-utils` содержит `pdfcrop`;
 - `poppler-utils` предоставляет `pdftoppm`, `pdfinfo` и `pdftotext`;
 - `libreoffice-*-nogui` позволяет проверять DOCX конвертацией в PDF без X11;
 - `default-jre-headless` нужен части компонентов LibreOffice.
 
 На сервере и в WSL устанавливайте именно `libreoffice-core-nogui` и `libreoffice-writer-nogui`. Обычный GUI-пакет `libreoffice-writer` может пытаться открыть X11 даже с параметром `--headless`.
 
-LibreOffice используется как дополнительная визуальная проверка. Обязательная техническая проверка DOCX выполняется независимо: ZIP/CRC плюс чтение документа библиотекой `python-docx`. В некоторых ограниченных WSL-песочницах LibreOffice может быть установлен правильно, но его процесс всё равно блокируется политикой среды; это фиксируется в отчёте как `validation.libreoffice: unavailable` и не отменяет успешно проверенный DOCX.
+### 3.5. Особенности Windows, учтённые в скриптах
 
-### Установка Node.js-зависимостей
+1. **Escape-последовательности в путях.** При подстановке Windows-путей с обратными слешами в исходный код генераторов (`\a` в `\anthropic`, `\f` в `\flu`, `\2` в `\2026`) Python и JavaScript интерпретируют их как escape-последовательности. Все скрипты используют `to_posix_path()` из `winenv.py`, который возвращает пути с прямыми слешами.
 
-После первого прохода восстановления выполните:
+2. **Блокировка файлов pdflatex.** На Windows `pdflatex` может оставлять `.log`-файлы открытыми, что препятствует очистке временного каталога (`PermissionError: [WinError 32]`). Функция `kill_orphaned_tex_processes()` вызывается в блоке `finally` после LaTeX-компиляций.
 
-```bash
-npm install --prefix restored_export_new/runtime pptxgenjs@3.12.0 docx@9.5.1 --no-audit --no-fund
-```
+3. **`python3` vs `python`.** На Windows исполняемый файл Python обычно называется `python`, а не `python3`. Все скрипты используют `sys.executable` вместо жёстко заданного `python3`.
 
-Это создаст локальный каталог `restored_export_new/runtime/node_modules`, не меняя глобальную конфигурацию Node.js.
+4. **`cairosvg` без нативной Cairo.** На Windows `cairosvg` устанавливается через pip, но требует нативную библиотеку `libcairo-2.dll`, которая отсутствует. DOCX-рецепты со SVG-диаграммами обрабатываются через альтернативный путь в `regenerate_known_office.py`; `cairosvg` используется только при его успешном импорте.
 
 ## 4. Безопасность
 
@@ -137,7 +209,7 @@ ZIP-файлы и восстановленные генераторы следу
 
 Все команды далее выполняются из каталога, где лежат актуальные Python-скрипты этого проекта.
 
-Задайте отдельные пути. Пример:
+**Linux/WSL:**
 
 ```bash
 python3 restore_export.py \
@@ -145,10 +217,10 @@ python3 restore_export.py \
   --output /absolute/path/to/restored_export_new
 ```
 
-Можно использовать относительные пути:
+**Windows:**
 
-```bash
-python3 restore_export.py --source ./new_export --output ./restored_export_new
+```cmd
+python recover_chats\restore_export.py --source . --output restored_export_new
 ```
 
 Что делает этот проход:
@@ -179,16 +251,16 @@ python3 restore_export.py --source ./new_export --output ./restored_export_new
 
 ## 6. Попытка перегенерации Python Office-файлов
 
-Команда принимает путь к каталогу разговоров:
+**Linux/WSL:**
 
 ```bash
 python3 regenerate_python_office.py /absolute/path/to/restored_export_new/conversations
 ```
 
-Или относительно корня проекта:
+**Windows:**
 
-```bash
-python3 regenerate_python_office.py restored_export_new/conversations
+```cmd
+python recover_chats\regenerate_python_office.py restored_export_new\conversations
 ```
 
 Скрипт ищет восстановленные `*.py`, которые:
@@ -222,10 +294,18 @@ python3 regenerate_python_office.py restored_export_new/conversations
 
 Сначала установите зависимости из раздела 3, затем выполните:
 
+**Linux/WSL:**
+
 ```bash
 python3 regenerate_node_office.py \
   restored_export_new/conversations \
   restored_export_new/runtime/node_modules
+```
+
+**Windows:**
+
+```cmd
+python recover_chats\regenerate_node_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 ```
 
 Скрипт ищет восстановленные JavaScript-генераторы на основе `pptxgenjs` и `docx`, перенаправляет известные выходные пути в `regenerated/` и пропускает распознанные опасные или дублирующиеся генераторы.
@@ -244,8 +324,16 @@ python3 regenerate_node_office.py \
 
 После установки системных зависимостей выполните:
 
+**Linux/WSL:**
+
 ```bash
 python3 regenerate_recipe_docx.py restored_export_new/conversations
+```
+
+**Windows:**
+
+```cmd
+python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
 ```
 
 Supported recipes use recovered local inputs.
@@ -271,10 +359,18 @@ Supported recipes use recovered local inputs.
 
 Для этого репозитория дополнительно выполните:
 
+**Linux/WSL:**
+
 ```bash
 python3 regenerate_known_office.py \
   restored_export_new/conversations \
   restored_export_new/runtime/node_modules
+```
+
+**Windows:**
+
+```cmd
+python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 ```
 
 Скрипт воспроизводит только явно сопоставленные рецепты: Pandoc из восстановленного Markdown, вызовы восстановленного `md2docx.js`, полные Node.js-рецепты с диаграммами и точные `cp`/rename-операции из tool calls. Каждый результат проверяется как ZIP/CRC и повторно открывается через `python-docx` или `openpyxl`. Отчёт: `<output>/known_office_regeneration_report.json`.
@@ -285,10 +381,18 @@ python3 regenerate_known_office.py \
 
 После любой перегенерации повторите основной запуск с теми же `--source` и `--output`:
 
+**Linux/WSL:**
+
 ```bash
 python3 restore_export.py \
   --source /absolute/path/to/new_export \
   --output /absolute/path/to/restored_export_new
+```
+
+**Windows:**
+
+```cmd
+python recover_chats\restore_export.py --source . --output restored_export_new
 ```
 
 Этот проход нужен, чтобы:
@@ -305,25 +409,19 @@ python3 restore_export.py \
 
 ## 9. Итоговая проверка
 
-Запустите:
+**Linux/WSL:**
 
 ```bash
 python3 check_restoration.py /absolute/path/to/restored_export_new
 ```
 
-Успешный пример итоговой сводки:
+**Windows:**
 
-```json
-{
-  "html_files": 94,
-  "local_links": 7323,
-  "broken_links": 0,
-  "office_files": 46,
-  "corrupt_office_files": 0
-}
+```cmd
+python recover_chats\check_restoration.py restored_export_new
 ```
 
-Числа будут отличаться для другого экспорта. Критерии успеха:
+Критерии успеха:
 
 - `broken_links` равно `0`;
 - `corrupt_office_files` равно `0`;
@@ -386,6 +484,7 @@ restored_export_new/
 ├── python_regeneration_report.json
 ├── node_regeneration_report.json
 ├── recipe_docx_regeneration_report.json
+├── known_office_regeneration_report.json
 ├── raw/
 ├── project_documents/
 └── conversations/
@@ -419,7 +518,35 @@ restored_export_new/
 
 ## 13. Полная последовательность команд
 
-Ниже — краткий шаблон после установки зависимостей. Замените пути на свои:
+### 13.1. Windows (одной командой)
+
+```cmd
+recover_chats\restore_all.bat . restored_export_new
+```
+
+Или вручную по шагам:
+
+```cmd
+powershell -ExecutionPolicy Bypass -File recover_chats\install_deps_windows.ps1
+
+python recover_chats\restore_export.py --source . --output restored_export_new
+
+python recover_chats\regenerate_python_office.py restored_export_new\conversations
+
+npm install --prefix restored_export_new\runtime pptxgenjs@3.12.0 docx@9.5.1 react react-dom react-icons sharp --no-audit --no-fund
+
+python recover_chats\regenerate_node_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
+
+python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
+
+python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
+
+python recover_chats\restore_export.py --source . --output restored_export_new
+
+python recover_chats\check_restoration.py restored_export_new
+```
+
+### 13.2. Linux/WSL
 
 ```bash
 python3 restore_export.py \
@@ -431,7 +558,7 @@ python3 regenerate_python_office.py \
 
 npm install \
   --prefix /data/restored_export_new/runtime \
-  pptxgenjs@3.12.0 docx@9.5.1 \
+  pptxgenjs@3.12.0 docx@9.5.1 react react-dom react-icons sharp \
   --no-audit --no-fund
 
 python3 regenerate_node_office.py \
@@ -455,7 +582,7 @@ python3 check_restoration.py \
 
 Если один из скриптов перегенерации вернул ненулевой код, прочитайте соответствующий JSON-отчёт, зафиксируйте причины ошибок и продолжайте с сохранившимися успешными результатами. Не объявляйте весь экспорт невосстановимым только из-за отдельных генераторов.
 
-## 14. Инструкция для автономного LLM-агента
+## 14. Инструкция для автономного ЛЛМ-агента
 
 Если эту работу выполняет другая LLM-модель, она должна:
 

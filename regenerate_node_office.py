@@ -11,6 +11,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from winenv import ensure_tools_on_path, to_posix_path
+
+ensure_tools_on_path()
+
 
 LIB_RE = re.compile(r"require\(['\"](?:pptxgenjs|docx)['\"]\)")
 OUTPUT_RE = re.compile(r"(['\"])(/[^'\"]+\.(?:pptx|docx|xlsx))\1", re.I)
@@ -49,17 +53,19 @@ def main() -> int:
             continue
         seen.add(marker)
 
+        regenerated.mkdir(parents=True, exist_ok=True)
+        regenerated_posix = to_posix_path(regenerated)
         declared: list[str] = []
         def replace_absolute(match: re.Match[str]) -> str:
             original = match.group(2)
             declared.append(original)
-            return match.group(1) + str(regenerated / Path(original).name) + match.group(1)
+            return match.group(1) + (regenerated_posix + "/" + Path(original).name) + match.group(1)
 
         patched = OUTPUT_RE.sub(replace_absolute, text)
         def replace_direct(match: re.Match[str]) -> str:
             original = match.group(3)
             declared.append(original)
-            return match.group(1) + match.group(2) + str(regenerated / Path(original).name) + match.group(2)
+            return match.group(1) + match.group(2) + (regenerated_posix + "/" + Path(original).name) + match.group(2)
 
         patched = DIRECT_WRITE_RE.sub(replace_direct, patched)
         entry["declared_outputs"] = sorted(set(declared))

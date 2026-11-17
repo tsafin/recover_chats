@@ -18,6 +18,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+from winenv import ensure_tools_on_path, to_posix_path
+
+ensure_tools_on_path()
+
 
 OFFICE_RE = re.compile(r"['\"](/(?:mnt/user-data/outputs|home/claude)/[^'\"]+\.(?:xlsx|docx|pptx))['\"]", re.I)
 SAFE_LIBRARY_RE = re.compile(r"(?:openpyxl|from\s+docx\s+import|from\s+pptx\s+import)")
@@ -60,9 +64,10 @@ def main() -> int:
             continue
         seen.add(marker)
         regenerated.mkdir(parents=True, exist_ok=True)
+        regenerated_posix = to_posix_path(regenerated)
         patched = text
         for original in outputs:
-            patched = patched.replace(original, str(regenerated / Path(original).name))
+            patched = patched.replace(original, regenerated_posix + "/" + Path(original).name)
         # One early spreadsheet generator saved to /home/claude without using
         # the standard outputs directory; the general regexp above catches it.
         before = {path.name for path in regenerated.iterdir() if path.is_file()}
