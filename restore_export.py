@@ -632,10 +632,11 @@ document.querySelectorAll('.preview-button').forEach(button=>button.addEventList
   if(isMd){
     previewIframe.style.display='none';previewIframe.removeAttribute('src');
     mdPreview.style.display='block';
-    var next=button.nextElementSibling;
+    var card=button.closest('.artifact-card');
+    var mdEl=card?card.querySelector('.md-data'):null;
     var mdText='';
-    if(next&&next.classList&&next.classList.contains('md-data')){
-      try{mdText=JSON.parse(next.textContent);}catch(e){mdText='';}
+    if(mdEl){
+      try{mdText=JSON.parse(mdEl.textContent);}catch(e){mdText='';}
     }
     mdPreview.innerHTML=mdText?renderMarkdownSimple(mdText):'<p style="color:#999">Empty.</p>';
   }else{
@@ -645,7 +646,7 @@ document.querySelectorAll('.preview-button').forEach(button=>button.addEventList
     previewIframe.src=src;
   }
   previewBox.classList.add('open');
-  previewBox.scrollIntoView({behavior:'smooth',block:'start'});
+  previewBox.parentElement.scrollTop=previewBox.offsetTop-20;
 }));
 document.getElementById('preview-close').addEventListener('click',closePreview);
 // Minimal Markdown renderer for preview pane
@@ -654,7 +655,7 @@ function renderMarkdownSimple(md){
   // Extract code blocks first to protect them
   var codeBlocks=[];
   md=md.replace(/```(\\w*)\\n([\\s\\S]*?)```/g,function(m,lang,code){
-    var i=codeBlocks.length;codeBlocks.push('<pre><code>'+h(code)+'</code></pre>');return '\\x00CODE'+i+'\\x00';
+    var i=codeBlocks.length;codeBlocks.push('<pre><code>'+h(code)+'</code></pre>');return '\@@CODE'+i+'\\x00';
   });
   md=h(md);
   // Headings
@@ -674,7 +675,7 @@ function renderMarkdownSimple(md){
     return b.trim()?'<p>'+b.replace(/\\n/g,'<br>')+'</p>':'';
   }).join('\\n');
   // Restore code blocks
-  md=md.replace(/\\x00CODE(\\d+)\\x00/g,function(m,i){return codeBlocks[+i]||''});
+  md=md.replace(/\@@CODE(\\d+)\\x00/g,function(m,i){return codeBlocks[+i]||''});
   return md;
 }
 </script></body></html>""".replace("__SORT_LOCALE__", sort_locale)
