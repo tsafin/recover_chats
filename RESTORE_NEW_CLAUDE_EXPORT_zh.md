@@ -472,6 +472,8 @@ Office 文件校验会检查 PPTX/DOCX/XLSX 的 ZIP 结构和 CRC。它不保证
 - 可保存选择的浅色/深色主题切换按钮；
 - 对话的搜索与排序；
 - 中间 — 选中的 HTML 聊天，含 Markdown 渲染；
+- tool calls 会合并到默认折叠的日志中；
+- 已展示的工件会出现在聊天时间线中，悬停时可预览、下载或定位到右侧对应卡片；
 - 右侧 — artifacts，含日期、版本和排序；
 - PDF、图像、HTML 和文本文件的预览；
 - PPTX/DOCX/XLSX 的链接；

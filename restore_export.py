@@ -447,6 +447,8 @@ def render_chat_html(
             "date": message_times.get(str(item.get("message_uuid")), ""),
             "version": version_counts[version_key],
             "local": local,
+            "raw_path": raw_path,
+            "message_uuid": str(item.get("message_uuid") or ""),
             "previewable": suffix in {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".html", ".htm", ".txt", ".md", ".json", ".csv"},
         })
     listed_locals = {str(item["local"]) for item in artifact_rows if item["local"]}
@@ -468,8 +470,74 @@ def render_chat_html(
             "date": mention_date or str(conversation.get("created_at") or ""),
             "version": version_counts[version_key],
             "local": local,
+            "raw_path": "",
+            "message_uuid": "",
             "previewable": path.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".html", ".htm", ".txt", ".md", ".json", ".csv"},
         })
+
+    def artifact_dom_key(name: str) -> str:
+        return hashlib.sha1(name.casefold().encode("utf-8")).hexdigest()[:12]
+
+    def artifact_icon(name: str) -> str:
+        suffix = Path(name).suffix.lower()
+        icon_class = "presentation" if suffix in {".ppt", ".pptx"} else "sheet" if suffix in {".xls", ".xlsx", ".csv"} else "document"
+        if icon_class == "presentation":
+            drawing = '<rect x="4" y="4" width="16" height="11" rx="2"/><path d="M12 15v5m-4 0h8M8 8h8"/>'
+        elif icon_class == "sheet":
+            drawing = '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 9h14M9.5 9v12M14.5 9v12M5 15h14"/>'
+        else:
+            drawing = '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'
+        return f'<span class="artifact-file-icon {icon_class}"><svg viewBox="0 0 24 24" aria-hidden="true">{drawing}</svg></span>'
+
+    def markdown_payload(local: str, name: str) -> str:
+        if Path(name).suffix.lower() not in {".md", ".markdown"}:
+            return ""
+        try:
+            md_content = (conv_dir / local).read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            md_content = ""
+        md_json = (
+            json.dumps(md_content, ensure_ascii=False)
+            .replace("&", "\\u0026")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029")
+        )
+        return f'<script type="application/json" class="md-data" data-src="{href(local)}">{md_json}</script>'
+
+    def artifact_card(item: dict[str, Any], *, inline: bool = False) -> str:
+        name = str(item["name"])
+        local = str(item["local"])
+        date = str(item["date"])
+        visible_date = date.replace("T", " ")[:16] if date else t("date_unknown")
+        key = artifact_dom_key(name)
+        classes = "artifact-card inline-artifact" if inline else "artifact-card"
+        bits = [
+            f'<article class="{classes}" data-artifact-key="{key}" data-date="{html.escape(date, quote=True)}" data-name="{html.escape(name.casefold(), quote=True)}" data-version="{item["version"]}">',
+            artifact_icon(name),
+            '<div class="artifact-card-copy">',
+            f'<div class="artifact-name">{html.escape(name)}</div>',
+            f'<div class="artifact-meta">{html.escape(Path(name).suffix.lstrip(".").upper() or "FILE")} · {html.escape(visible_date)} · {t("version_label")} {item["version"]}</div>',
+            '</div>',
+        ]
+        if local:
+            is_md = Path(name).suffix.lower() in {".md", ".markdown"}
+            bits.append('<div class="artifact-hover-actions">')
+            if item["previewable"]:
+                preview_data = ' data-md="1"' if is_md else f' data-src="{href(local)}"'
+                bits.append(f'<button type="button" class="artifact-icon-button preview-button"{preview_data} data-title="{html.escape(name, quote=True)}" title="{t("button_preview")}" aria-label="{t("button_preview")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button>')
+            bits.append(f'<a class="artifact-icon-button" href="{href(local)}" download title="{t("button_download")}" aria-label="{t("button_download")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg></a>')
+            if inline:
+                bits.append(f'<button type="button" class="artifact-icon-button locate-artifact" data-artifact-key="{key}" title="{t("button_show_in_list")}" aria-label="{t("button_show_in_list")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>')
+            else:
+                bits.append(f'<a class="artifact-icon-button" href="{href(local)}" target="_blank" title="{t("button_open")}" aria-label="{t("button_open")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 13v6H5V6h6"/></svg></a>')
+            bits.append('</div>')
+            bits.append(markdown_payload(local, name))
+        else:
+            bits.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
+        bits.append('</article>')
+        return "".join(bits)
 
     parts = [f"""<!doctype html>
 <html lang="{L("html_lang", lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -487,15 +555,16 @@ main{{min-width:0;padding:0 clamp(18px,3vw,46px) 70px}}.hero,.message,.panel{{ba
 .head{{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}}.role{{font-weight:750}}.time{{color:var(--muted);font-size:12px}}.text{{white-space:pre-wrap;overflow-wrap:anywhere}}.markdown{{overflow-wrap:anywhere}}.markdown>:first-child{{margin-top:0}}.markdown>:last-child{{margin-bottom:0}}.markdown h1,.markdown h2,.markdown h3{{line-height:1.25;margin:1.1em 0 .45em}}.markdown h1{{font-size:1.55em}}.markdown h2{{font-size:1.3em}}.markdown h3{{font-size:1.12em}}.markdown blockquote{{margin:10px 0;padding:3px 14px;border-left:4px solid #b9b4aa;color:#555;background:#f7f6f3}}.markdown table{{border-collapse:collapse;display:block;max-width:100%;overflow:auto}}.markdown th,.markdown td{{border:1px solid var(--line);padding:6px 10px}}.markdown th{{background:#f1efe9}}.markdown img{{max-width:100%}}.markdown ul,.markdown ol{{padding-left:25px}}.markdown pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px 12px;border-radius:8px;margin:8px 0}}.markdown code{{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#f0eee8;padding:1px 4px;border-radius:3px}}.markdown pre code{{background:none;padding:0}}
 details{{border:1px solid var(--line);border-radius:10px;margin:7px 0;background:var(--surface)}}summary{{cursor:pointer;padding:7px 10px;font-weight:400;font-size:12px;color:var(--muted)}}details[open]>summary{{border-bottom:1px solid var(--line)}}details>div,details>pre{{margin:0;padding:10px;border-top:1px solid var(--line)}}
 details.tool-call{{background:transparent;border-color:var(--line)}}details.tool-call>summary{{font-size:11px;color:var(--muted)}}details.tool-call>pre{{font-size:11px}}
+.tool-log{{max-width:860px;margin:4px auto 24px;border:0;background:transparent}}.tool-log>summary{{display:flex;align-items:center;gap:7px;padding:4px 0;list-style:none;font-size:13px;color:var(--muted)}}.tool-log>summary::-webkit-details-marker{{display:none}}.tool-log>summary::after{{content:"›";font-size:17px;line-height:1;transition:transform .15s ease}}.tool-log[open]>summary::after{{transform:rotate(90deg)}}.tool-log[open]{{border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--surface) 45%,transparent)}}.tool-log[open]>summary{{padding:9px 12px;border-bottom:1px solid var(--line)}}.tool-log-body{{padding:0!important;border:0!important}}.tool-step{{margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent}}.tool-step:last-child{{border-bottom:0}}.tool-step>summary{{padding:10px 12px;font-size:12px}}.tool-step[open]>summary{{color:var(--ink)}}.tool-step>pre,.tool-step>.tool-result-body{{max-height:340px;overflow:auto;border-top:1px solid var(--line)}}
 pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:var(--code-ink);font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}}
 .markdown blockquote{{color:var(--muted);background:var(--surface-2);border-left-color:var(--line-strong)}}.markdown th{{background:var(--surface-2)}}.markdown pre{{color:var(--code-ink)}}.markdown code{{background:var(--surface-2)}}
 .chips{{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}}.chip,.file-link{{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 9px;background:var(--surface);color:var(--muted);text-decoration:none;font-size:11px}}.chip:hover,.file-link:hover{{color:var(--ink);border-color:var(--line-strong)}}
 .resource{{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:8px 0;background:var(--surface)}}.missing{{border-color:#8d713d;background:color-mix(in srgb,#9a7429 12%,var(--surface))}}.source-reference{{color:var(--muted);text-decoration-style:dotted}}
 .right-resizer{{position:sticky;top:0;height:100vh;cursor:col-resize;touch-action:none}}.right-resizer::after{{content:"";position:absolute;left:3px;top:12px;bottom:12px;width:1px;border-radius:2px;background:var(--line);opacity:.8}}.right-resizer:hover::after,.right-resizer.dragging::after{{width:2px;background:var(--accent);opacity:1}}body.resizing{{cursor:col-resize;user-select:none}}
 aside{{position:sticky;top:0;height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);background:var(--bg)}}.panel{{padding:13px 14px 30px}}.panel h2{{font-size:13px;margin:16px 0 8px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:11px}}
-.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:11px;padding:11px;background:var(--surface);box-shadow:var(--shadow)}}.artifact-card:hover,.file-card:hover{{border-color:var(--line-strong)}}.artifact-name,.file-name{{font-weight:620;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:11px;margin:3px 0 8px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid var(--line);border-radius:7px;padding:4px 8px;background:var(--surface-2);color:var(--ink);font:inherit;font-size:11px;text-decoration:none;cursor:pointer}}.artifact-actions a:hover,.artifact-actions button:hover,.file-card a:hover{{border-color:var(--line-strong);background:var(--surface-3)}}.artifact-missing{{color:#b8954f;font-size:11px}}.preview-box{{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}}.preview-title{{overflow-wrap:anywhere}}.preview-box iframe{{width:100%;height:55vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{max-height:55vh;overflow:auto;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}}.preview-close{{border:0;background:transparent;color:var(--muted);font-size:22px;cursor:pointer}}
+.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:6px}}.artifact-list,.file-list{{display:grid;gap:9px}}.artifact-card,.file-card{{position:relative;border:1px solid var(--line);border-radius:12px;padding:11px;background:var(--surface);box-shadow:var(--shadow)}}.artifact-card{{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:center;min-height:62px}}.inline-artifact{{max-width:568px;margin:14px 0 22px;background:var(--surface)}}.artifact-card:hover,.artifact-card:focus-within,.file-card:hover{{border-color:var(--line-strong)}}.artifact-card-copy{{min-width:0}}.artifact-file-icon{{width:36px;height:36px;display:grid;place-items:center;border-radius:7px;background:var(--surface-2);color:var(--muted)}}.artifact-file-icon.presentation{{color:#e47d4f;background:color-mix(in srgb,#c76136 18%,var(--surface))}}.artifact-file-icon.sheet{{color:#68a27b;background:color-mix(in srgb,#43865a 18%,var(--surface))}}.artifact-file-icon svg,.artifact-icon-button svg{{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}}.artifact-name,.file-name{{font-weight:620;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}.artifact-meta,.file-meta{{color:var(--muted);font-size:11px;margin-top:3px}}.artifact-hover-actions{{position:absolute;z-index:3;right:9px;top:-17px;display:flex;gap:5px;opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .13s ease,transform .13s ease}}.artifact-card:hover .artifact-hover-actions,.artifact-card:focus-within .artifact-hover-actions{{opacity:1;transform:none;pointer-events:auto}}.artifact-icon-button{{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line)!important;border-radius:10px!important;padding:0!important;background:var(--surface-2)!important;color:var(--ink)!important;text-decoration:none;cursor:pointer;box-shadow:0 2px 8px #0003}}.artifact-icon-button:hover{{background:var(--surface-3)!important;border-color:var(--line-strong)!important}}.locate-artifact circle{{fill:currentColor;stroke:none}}.file-card a{{display:inline-block;margin-top:7px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;background:var(--surface-2);color:var(--ink);font-size:11px;text-decoration:none}}.artifact-missing{{grid-column:1/-1;color:#b8954f;font-size:11px}}.artifact-card.located{{animation:artifact-pulse 1.2s ease}}@keyframes artifact-pulse{{0%,100%{{box-shadow:var(--shadow)}}35%{{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent)}}}}.preview-box{{display:none;grid-column:1/-1;margin-top:2px;padding-top:10px;border-top:1px solid var(--line)}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}}.preview-title{{overflow-wrap:anywhere}}.preview-box iframe{{width:100%;height:55vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{max-height:55vh;overflow:auto;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}}.preview-close{{border:0;background:transparent;color:var(--muted);font-size:22px;cursor:pointer}}
 .lang-switch{{position:absolute;top:10px;right:18px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:4px 6px;font:inherit;font-size:11px}}
-@media(max-width:900px){{.layout{{grid-template-columns:1fr}}main{{padding:0 14px 50px}}.hero{{margin:0 -14px 20px;padding:11px 14px}}.right-resizer{{display:none}}aside{{position:static;height:auto;order:-1;border:0;border-bottom:1px solid var(--line)}}.message.user{{max-width:88%}}.lang-switch{{right:10px}}}}
+@media(hover:none){{.artifact-hover-actions{{position:static;grid-column:2;grid-row:2;justify-self:end;opacity:1;transform:none;pointer-events:auto;margin-top:5px}}}}@media(max-width:900px){{.layout{{grid-template-columns:1fr}}main{{padding:0 14px 50px}}.hero{{margin:0 -14px 20px;padding:11px 14px}}.right-resizer{{display:none}}aside{{position:static;height:auto;order:-1;border:0;border-bottom:1px solid var(--line)}}.message.user{{max-width:88%}}.lang-switch{{right:10px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
         '<section class="hero">', f"<h1>{html.escape(title)}</h1>",
@@ -504,6 +573,93 @@ aside{{position:sticky;top:0;height:100vh;overflow:auto;min-width:0;border-left:
         "</section>",
     ])
     command_index = 0
+
+    def presented_paths(block: dict[str, Any]) -> list[str]:
+        kind = block.get("type")
+        if kind == "tool_use" and str(block.get("name") or "") in PRESENT_TOOLS:
+            inp = block.get("input") or {}
+            if not isinstance(inp, dict):
+                return []
+            paths = [str(path) for path in (inp.get("filepaths") or inp.get("files") or []) if path]
+            if inp.get("file_path"):
+                paths.append(str(inp["file_path"]))
+            return paths
+        if kind == "tool_result":
+            return [
+                str(item.get("file_path") or "")
+                for item in block.get("content") or []
+                if isinstance(item, dict) and item.get("type") == "local_resource" and item.get("file_path")
+            ]
+        return []
+
+    def matching_artifact(raw_path: str, message_uuid: str) -> dict[str, Any]:
+        exact = [item for item in artifact_rows if item.get("raw_path") == raw_path and item.get("message_uuid") == message_uuid]
+        if not exact:
+            exact = [item for item in artifact_rows if item.get("raw_path") == raw_path]
+        if exact:
+            return max(exact, key=lambda item: int(item["version"]))
+        name = Path(raw_path).name or raw_path
+        local = resource_links.get(raw_path, "")
+        suffix = Path(local or name).suffix.lower()
+        return {
+            "name": name,
+            "date": message_times.get(message_uuid, ""),
+            "version": 1,
+            "local": local,
+            "raw_path": raw_path,
+            "message_uuid": message_uuid,
+            "previewable": suffix in {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".html", ".htm", ".txt", ".md", ".json", ".csv"},
+        }
+
+    def tool_step(block: dict[str, Any]) -> str:
+        nonlocal command_index
+        kind = block.get("type")
+        if kind == "thinking":
+            value = str(block.get("thinking") or "").strip()
+            if not value:
+                return ""
+            return f'<details class="tool-step"><summary>{t("thinking")}</summary><div class="tool-result-body markdown">{render_markdown(value, resource_links, lang)}</div></details>'
+        if kind == "tool_use":
+            name = str(block.get("name") or "tool")
+            inp = block.get("input") or {}
+            if not isinstance(inp, dict):
+                inp = {}
+            chips: list[str] = []
+            if name in COMMAND_TOOLS:
+                command_index += 1
+                chips.append(f'<a class="chip" href="commands/{command_index:04d}_{safe_component(name, 30)}.sh">{t("command_label")} #{command_index}</a>')
+            candidate_paths = [inp.get("file_path"), inp.get("path"), *(inp.get("filepaths") or [])]
+            linked_names: list[str] = []
+            for raw_path in candidate_paths:
+                if not raw_path:
+                    continue
+                linked_names.append(Path(str(raw_path)).name)
+                if str(raw_path) in resource_links:
+                    chips.append(f'<a class="chip" href="{href(resource_links[str(raw_path)])}">📄 {html.escape(Path(str(raw_path)).name)}</a>')
+            lowered = name.casefold()
+            if name in COMMAND_TOOLS:
+                label = t("tool_command")
+            elif "read" in lowered:
+                label = t("tool_read")
+            elif any(token in lowered for token in ("write", "edit", "create", "replace")):
+                label = t("tool_change")
+            else:
+                label = t("tool_action")
+            suffix = f' · {html.escape(linked_names[0])}' if linked_names else f' · {html.escape(name)}'
+            payload = html.escape(json.dumps(inp, ensure_ascii=False, indent=2))
+            return f'<details class="tool-step"><summary>{html.escape(label)}{suffix}</summary><div class="chips">{"".join(chips)}</div><pre>{payload}</pre></details>'
+        if kind == "tool_result":
+            texts = [
+                render_markdown(item.get("text"), resource_links, lang)
+                for item in block.get("content") or []
+                if isinstance(item, dict) and item.get("type") == "text"
+            ]
+            if not texts:
+                return ""
+            name = str(block.get("name") or "tool")
+            return f'<details class="tool-step"><summary>{t("result_prefix")} · {html.escape(name)}</summary><div class="tool-result-body markdown">{"".join(texts)}</div></details>'
+        return ""
+
     for msg_index, message in enumerate(conversation.get("chat_messages") or [], 1):
         sender = message.get("sender")
         role = t("role_user") if sender == "human" else t("role_assistant")
@@ -514,52 +670,38 @@ aside{{position:sticky;top:0;height:100vh;overflow:auto;min-width:0;border-left:
         blocks = message.get("content") or []
         if not blocks and message.get("text"):
             parts.append(f'<div class="markdown">{render_markdown(message["text"], resource_links, lang)}</div>')
-        for block in blocks:
+        block_index = 0
+        inline_seen: set[str] = set()
+        while block_index < len(blocks):
+            block = blocks[block_index]
+            block_index += 1
             if not isinstance(block, dict):
                 continue
             kind = block.get("type")
             if kind == "text":
                 parts.append(f'<div class="markdown">{render_markdown(block.get("text"), resource_links, lang)}</div>')
-            elif kind == "thinking":
-                thinking_text = str(block.get("thinking") or "").strip()
-                if not thinking_text:
-                    continue
-                parts.append(f'<details><summary>{t("thinking")}</summary><div class="markdown">{render_markdown(thinking_text, resource_links, lang)}</div></details>')
-            elif kind == "tool_use":
-                name = str(block.get("name") or "tool")
-                inp = block.get("input") or {}
-                chips: list[str] = []
-                if name in COMMAND_TOOLS:
-                    command_index += 1
-                    chips.append(f'<a class="chip" href="commands/{command_index:04d}_{safe_component(name, 30)}.sh">{t("command_label")} #{command_index}</a>')
-                if isinstance(inp, dict):
-                    candidate_paths = [inp.get("file_path"), inp.get("path")]
-                    candidate_paths.extend(inp.get("filepaths") or [])
-                    for raw_path in candidate_paths:
-                        if raw_path and str(raw_path) in resource_links:
-                            chips.append(f'<a class="chip" href="{href(resource_links[str(raw_path)])}">📄 {html.escape(Path(str(raw_path)).name)}</a>')
-                payload = html.escape(json.dumps(inp, ensure_ascii=False, indent=2))
-                parts.append(f'<details class="tool-call"><summary>🛠 {html.escape(name)}</summary><div class="chips">{"".join(chips)}</div><pre>{payload}</pre></details>')
-            elif kind == "tool_result":
-                resources = []
-                texts = []
-                for item in block.get("content") or []:
-                    if not isinstance(item, dict):
+                continue
+            paths = presented_paths(block)
+            if paths:
+                for raw_path in paths:
+                    identity = raw_path.casefold()
+                    if identity in inline_seen:
                         continue
-                    if item.get("type") == "local_resource":
-                        raw_path = str(item.get("file_path") or "")
-                        local = resource_links.get(raw_path)
-                        if local:
-                            resources.append(f'<div class="resource">✅ <a href="{href(local)}">{html.escape(Path(raw_path).name)}</a> · {html.escape(str(item.get("mime_type") or ""))}</div>')
-                        else:
-                            resources.append(f'<div class="resource missing">{t("metadata_only")}: {html.escape(raw_path)} · UUID <code>{html.escape(str(item.get("uuid") or ""))}</code></div>')
-                    elif item.get("type") == "text":
-                        texts.append(render_markdown(item.get("text"), resource_links, lang))
-                if resources or texts:
-                    parts.append(f'<details class="tool-call"><summary>{t("result_prefix")}: {html.escape(str(block.get("name") or "tool"))}</summary>{"".join(resources)}')
-                    for text_item in texts:
-                        parts.append(f'<div class="markdown">{text_item}</div>')
-                    parts.append("</details>")
+                    inline_seen.add(identity)
+                    parts.append(artifact_card(matching_artifact(raw_path, str(message.get("uuid") or "")), inline=True))
+                continue
+            if kind in {"thinking", "tool_use", "tool_result"}:
+                group = [block]
+                while block_index < len(blocks):
+                    candidate = blocks[block_index]
+                    if not isinstance(candidate, dict) or candidate.get("type") not in {"thinking", "tool_use", "tool_result"} or presented_paths(candidate):
+                        break
+                    group.append(candidate)
+                    block_index += 1
+                steps = [value for item in group if (value := tool_step(item))]
+                if steps:
+                    summary = html.escape(t("tool_log_summary").format(count=len(steps)))
+                    parts.append(f'<details class="tool-log"><summary>{summary}</summary><div class="tool-log-body">{"".join(steps)}</div></details>')
             elif kind in {"image", "document"}:
                 parts.append(f'<div class="resource missing">{html.escape(kind.title())}: UUID <code>{html.escape(str(block.get("file_uuid") or ""))}</code> — {t("binary_missing")}</div>')
         parts.append("</article>")
@@ -568,39 +710,7 @@ aside{{position:sticky;top:0;height:100vh;overflow:auto;min-width:0;border-left:
     parts.append(f'<div class="artifact-toolbar"><label for="artifact-sort" class="count">{t("sort_label")}</label><select id="artifact-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="version">{t("sort_version")}</option></select></div>')
     parts.append('<div class="artifact-list" id="artifact-list">')
     for item in artifact_rows:
-        local = str(item["local"])
-        date = str(item["date"])
-        visible_date = date.replace("T", " ")[:16] if date else t("date_unknown")
-        parts.append(f'<article class="artifact-card" data-date="{html.escape(date, quote=True)}" data-name="{html.escape(str(item["name"]).casefold(), quote=True)}" data-version="{item["version"]}"><div class="artifact-name">{html.escape(str(item["name"]))}</div><div class="artifact-meta">{html.escape(visible_date)} · {t("version_label")} {item["version"]}</div>')
-        if local:
-            parts.append(f'<div class="artifact-actions"><a href="{href(local)}" target="_blank">{t("button_open")}</a>')
-            if item["previewable"]:
-                is_md = Path(str(item["name"])).suffix.lower() in {".md", ".markdown"}
-                if is_md:
-                    md_path = conv_dir / local
-                    try:
-                        md_content = md_path.read_text(encoding="utf-8", errors="replace")
-                    except Exception:
-                        md_content = ""
-                    # application/json is a raw-text element: HTML entities such as
-                    # &quot; are not decoded there.  Keep valid JSON and escape only
-                    # characters that could terminate the script element.
-                    md_json = (
-                        json.dumps(md_content, ensure_ascii=False)
-                        .replace("&", "\\u0026")
-                        .replace("<", "\\u003c")
-                        .replace(">", "\\u003e")
-                        .replace("\u2028", "\\u2028")
-                        .replace("\u2029", "\\u2029")
-                    )
-                    parts.append(f'<button type="button" class="preview-button" data-md="1" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
-                    parts.append(f'<script type="application/json" class="md-data" data-src="{href(local)}">{md_json}</script>')
-                else:
-                    parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
-            parts.append('</div>')
-        else:
-            parts.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
-        parts.append('</article>')
+        parts.append(artifact_card(item))
     parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong class="preview-title" id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div></div>')
     parts.append(f'<details><summary>{t("regenerated_title")} <span class="count">{len(regenerated)}</span></summary><ul>')
     for path in regenerated:
@@ -671,6 +781,13 @@ function finishAsideResize(event){
   try{localStorage.setItem('restore_aside_width',parseFloat(getComputedStyle(chatLayout).getPropertyValue('--aside-w'))||340);}catch(error){}
 }
 rightResizer.addEventListener('pointerup',finishAsideResize);rightResizer.addEventListener('pointercancel',finishAsideResize);
+// Inline artifacts and the right-hand list are two views of the same item.
+document.querySelectorAll('.locate-artifact').forEach(button=>button.addEventListener('click',()=>{
+  const target=artifactList.querySelector('.artifact-card[data-artifact-key="'+button.dataset.artifactKey+'"]');
+  if(!target)return;
+  target.scrollIntoView({behavior:'smooth',block:'center'});
+  target.classList.remove('located');void target.offsetWidth;target.classList.add('located');
+}));
 // Preview is moved into the selected artifact card and grows only downward.
 const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), mdPreview=document.getElementById('md-preview');
 const previewHome=previewBox.parentElement;
