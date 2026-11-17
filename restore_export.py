@@ -476,20 +476,21 @@ def render_chat_html(
 <style>
 :root{{--bg:#f5f3ee;--paper:#fff;--ink:#24231f;--muted:#706d65;--line:#ddd8ce;--user:#e8f1ff;--ai:#fff8e8;--accent:#b44b2a;--code:#202124}}
 *{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}
-a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;max-width:1500px;margin:auto;padding:20px}}
+a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) var(--aside-w,340px);gap:20px;max-width:1500px;margin:auto;padding:20px}}
 main{{min-width:0}}.hero,.message,.panel{{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #0000000a}}
 .hero{{padding:22px;margin-bottom:18px}}.hero h1{{margin:0 0 8px;font-size:26px}}.meta{{color:var(--muted)}}
 .message{{padding:18px;margin:14px 0}}.message.user{{border-left:5px solid #3478c8;background:linear-gradient(90deg,var(--user),#fff 20%)}}
 .message.assistant{{border-left:5px solid #d18a24;background:linear-gradient(90deg,var(--ai),#fff 20%)}}
-.head{{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}}.role{{font-weight:750}}.time{{color:var(--muted);font-size:12px}}.text{{white-space:pre-wrap;overflow-wrap:anywhere}}.markdown{{overflow-wrap:anywhere}}.markdown>:first-child{{margin-top:0}}.markdown>:last-child{{margin-bottom:0}}.markdown h1,.markdown h2,.markdown h3{{line-height:1.25;margin:1.1em 0 .45em}}.markdown h1{{font-size:1.55em}}.markdown h2{{font-size:1.3em}}.markdown h3{{font-size:1.12em}}.markdown blockquote{{margin:10px 0;padding:3px 14px;border-left:4px solid #b9b4aa;color:#555;background:#f7f6f3}}.markdown table{{border-collapse:collapse;display:block;max-width:100%;overflow:auto}}.markdown th,.markdown td{{border:1px solid var(--line);padding:6px 10px}}.markdown th{{background:#f1efe9}}.markdown img{{max-width:100%}}.markdown ul,.markdown ol{{padding-left:25px}}
-details{{border:1px solid var(--line);border-radius:9px;margin:10px 0;background:#fafafa}}summary{{cursor:pointer;padding:9px 12px;font-weight:650}}details>div,details>pre{{margin:0;padding:12px;border-top:1px solid var(--line)}}
+.head{{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}}.role{{font-weight:750}}.time{{color:var(--muted);font-size:12px}}.text{{white-space:pre-wrap;overflow-wrap:anywhere}}.markdown{{overflow-wrap:anywhere}}.markdown>:first-child{{margin-top:0}}.markdown>:last-child{{margin-bottom:0}}.markdown h1,.markdown h2,.markdown h3{{line-height:1.25;margin:1.1em 0 .45em}}.markdown h1{{font-size:1.55em}}.markdown h2{{font-size:1.3em}}.markdown h3{{font-size:1.12em}}.markdown blockquote{{margin:10px 0;padding:3px 14px;border-left:4px solid #b9b4aa;color:#555;background:#f7f6f3}}.markdown table{{border-collapse:collapse;display:block;max-width:100%;overflow:auto}}.markdown th,.markdown td{{border:1px solid var(--line);padding:6px 10px}}.markdown th{{background:#f1efe9}}.markdown img{{max-width:100%}}.markdown ul,.markdown ol{{padding-left:25px}}.markdown pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px 12px;border-radius:8px;margin:8px 0}}.markdown code{{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#f0eee8;padding:1px 4px;border-radius:3px}}.markdown pre code{{background:none;padding:0}}
+details{{border:1px solid var(--line);border-radius:9px;margin:6px 0;background:#fafafa}}summary{{cursor:pointer;padding:6px 10px;font-weight:400;font-size:12px;color:var(--muted)}}details[open]>summary{{border-bottom:1px solid var(--line)}}details>div,details>pre{{margin:0;padding:10px;border-top:1px solid var(--line)}}
+details.tool-call{{background:#f7f7f5;border-color:#e8e6e0}}details.tool-call>summary{{font-size:11px;color:#888}}details.tool-call>pre{{font-size:11px}}
 pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}}
 .chips{{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}}.chip,.file-link{{display:inline-block;border:1px solid #b7cce4;border-radius:999px;padding:3px 9px;background:#f3f8ff;text-decoration:none;font-size:12px}}
 .resource{{border-left:3px solid #6f9d68;padding:8px 10px;margin:7px 0;background:#f4faf2}}.missing{{border-color:#c8a34c;background:#fff9e9}}.source-reference{{color:#6b6255;text-decoration-style:dotted}}
-aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}}.panel{{padding:15px}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
-.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}}.preview-box iframe{{width:100%;height:48vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:18px;cursor:pointer}}
+aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:horizontal;min-width:240px;max-width:80vw}}.panel{{padding:15px}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
+.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}}.preview-box iframe{{width:100%;height:48vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{max-height:60vh;overflow:auto;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:18px;cursor:pointer}}
 .lang-switch{{position:absolute;top:18px;right:30px;border:1px solid var(--line);border-radius:8px;background:white;padding:4px 6px;font:inherit;font-size:12px}}
-@media(max-width:900px){{.layout{{grid-template-columns:1fr;padding:12px}}aside{{position:static;height:auto;order:-1}}.lang-switch{{right:14px}}}}
+@media(max-width:900px){{.layout{{grid-template-columns:1fr;padding:12px}}aside{{position:static;height:auto;order:-1;resize:none}}.lang-switch{{right:14px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
         '<section class="hero">', f"<h1>{html.escape(title)}</h1>",
@@ -515,7 +516,10 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}}.panel{
             if kind == "text":
                 parts.append(f'<div class="markdown">{render_markdown(block.get("text"), resource_links, lang)}</div>')
             elif kind == "thinking":
-                parts.append(f'<details><summary>{t("thinking")}</summary><div class="markdown">{render_markdown(block.get("thinking"), resource_links, lang)}</div></details>')
+                thinking_text = str(block.get("thinking") or "").strip()
+                if not thinking_text:
+                    continue
+                parts.append(f'<details><summary>{t("thinking")}</summary><div class="markdown">{render_markdown(thinking_text, resource_links, lang)}</div></details>')
             elif kind == "tool_use":
                 name = str(block.get("name") or "tool")
                 inp = block.get("input") or {}
@@ -530,7 +534,7 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}}.panel{
                         if raw_path and str(raw_path) in resource_links:
                             chips.append(f'<a class="chip" href="{href(resource_links[str(raw_path)])}">📄 {html.escape(Path(str(raw_path)).name)}</a>')
                 payload = html.escape(json.dumps(inp, ensure_ascii=False, indent=2))
-                parts.append(f'<details><summary>🛠 {html.escape(name)}</summary><div class="chips">{"".join(chips)}</div><pre>{payload}</pre></details>')
+                parts.append(f'<details class="tool-call"><summary>🛠 {html.escape(name)}</summary><div class="chips">{"".join(chips)}</div><pre>{payload}</pre></details>')
             elif kind == "tool_result":
                 resources = []
                 texts = []
@@ -547,7 +551,7 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}}.panel{
                     elif item.get("type") == "text":
                         texts.append(render_markdown(item.get("text"), resource_links, lang))
                 if resources or texts:
-                    parts.append(f'<details><summary>{t("result_prefix")}: {html.escape(str(block.get("name") or "tool"))}</summary>{"".join(resources)}')
+                    parts.append(f'<details class="tool-call"><summary>{t("result_prefix")}: {html.escape(str(block.get("name") or "tool"))}</summary>{"".join(resources)}')
                     for text_item in texts:
                         parts.append(f'<div class="markdown">{text_item}</div>')
                     parts.append("</details>")
@@ -565,12 +569,14 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}}.panel{
         if local:
             parts.append(f'<div class="artifact-actions"><a href="{href(local)}" target="_blank">{t("button_open")}</a>')
             if item["previewable"]:
-                parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
+                is_md = Path(str(item["name"])).suffix.lower() in {".md", ".markdown"}
+                md_flag = ' data-md="1"' if is_md else ""
+                parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}"{md_flag}>{t("button_preview")}</button>')
             parts.append('</div>')
         else:
             parts.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
         parts.append('</article>')
-    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}"></iframe></div>')
+    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div></div>')
     parts.append(f'<details><summary>{t("regenerated_title")} <span class="count">{len(regenerated)}</span></summary><ul>')
     for path in regenerated:
         if path.is_file():
@@ -609,9 +615,56 @@ function sortFiles(){
   }).forEach(node=>fileList.appendChild(node));
 }
 fileSort.addEventListener('change',sortFiles); sortFiles();
-const previewBox=document.getElementById('preview-box'), preview=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title');
-document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{preview.src=button.dataset.src;previewTitle.textContent=button.dataset.title;previewBox.classList.add('open');previewBox.scrollIntoView({behavior:'smooth',block:'start'});}));
-document.getElementById('preview-close').addEventListener('click',()=>{preview.removeAttribute('src');previewBox.classList.remove('open');});
+// Preview: md files get rendered markdown; others use iframe
+const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), mdPreview=document.getElementById('md-preview');
+function closePreview(){previewIframe.removeAttribute('src');previewIframe.style.display='none';mdPreview.innerHTML='';mdPreview.style.display='none';previewBox.classList.remove('open');}
+document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{
+  var src=button.dataset.src, title=button.dataset.title, isMd=button.dataset.md==='1';
+  previewTitle.textContent=title;
+  if(isMd){
+    previewIframe.style.display='none';previewIframe.removeAttribute('src');
+    mdPreview.style.display='block';
+    fetch(src).then(function(r){return r.text()}).then(function(txt){
+      mdPreview.innerHTML=renderMarkdownSimple(txt);
+    }).catch(function(){mdPreview.innerHTML='<p style="color:#999">Failed to load.</p>'});
+  }else{
+    mdPreview.style.display='none';mdPreview.innerHTML='';
+    previewIframe.style.display='block';
+    previewIframe.src=src;
+  }
+  previewBox.classList.add('open');
+  previewBox.scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.getElementById('preview-close').addEventListener('click',closePreview);
+// Minimal Markdown renderer for preview pane
+function renderMarkdownSimple(md){
+  var h=function(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  // Extract code blocks first to protect them
+  var codeBlocks=[];
+  md=md.replace(/```(\\w*)\\n([\\s\\S]*?)```/g,function(m,lang,code){
+    var i=codeBlocks.length;codeBlocks.push('<pre><code>'+h(code)+'</code></pre>');return '\\x00CODE'+i+'\\x00';
+  });
+  md=h(md);
+  // Headings
+  md=md.replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // Bold/italic
+  md=md.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>').replace(/\\*(.+?)\\*/g,'<em>$1</em>');
+  // Inline code
+  md=md.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // Links
+  md=md.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'<a href="$2">$1</a>');
+  // Lists
+  md=md.replace(/^(\\s*)[-*] (.+)$/gm,'<li>$2</li>');
+  md=md.replace(/(<li>[\\s\\S]*?<\\/li>)/g,'<ul>$1</ul>');
+  // Paragraphs
+  md=md.split(/\\n\\n+/).map(function(b){
+    if(/^<(h[1-6]|ul|ol|pre|blockquote)/.test(b.trim()))return b;
+    return b.trim()?'<p>'+b.replace(/\\n/g,'<br>')+'</p>':'';
+  }).join('\\n');
+  // Restore code blocks
+  md=md.replace(/\\x00CODE(\\d+)\\x00/g,function(m,i){return codeBlocks[+i]||''});
+  return md;
+}
 </script></body></html>""".replace("__SORT_LOCALE__", sort_locale)
     parts.append(js_block)
     return "".join(parts)
@@ -648,7 +701,7 @@ def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> s
         lang_options.append(f'<option value="{code}"{sel}>{html.escape(name)}</option>')
 
     return f"""<!doctype html><html lang="{L("html_lang", lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(ti("page_title"))}</title><style>
-:root{{--sidebar:#181817;--sidebar2:#242422;--ink:#eee;--muted:#a9a7a1;--accent:#d97757}}*{{box-sizing:border-box}}html,body{{height:100%;margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}}body{{display:grid;grid-template-columns:290px minmax(0,1fr);overflow:hidden;background:#f5f3ee}}.sidebar{{height:100vh;background:var(--sidebar);color:var(--ink);display:flex;flex-direction:column;border-right:1px solid #343431}}.brand{{padding:15px 16px 10px;font-size:20px;font-weight:700}}.tools{{padding:0 10px 10px;display:grid;gap:7px}}.tools input,.tools select{{width:100%;border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:8px 9px}}.links{{display:flex;gap:9px;padding:0 14px 10px;flex-wrap:wrap;align-items:center}}.links a{{color:#c9c6bf;font-size:12px}}.lang-switch{{border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:4px 6px;font:inherit;font-size:12px}}.conversation-list{{overflow:auto;padding:4px 7px 16px}}.conversation{{display:block;color:var(--ink);text-decoration:none;padding:9px 10px;border-radius:8px;margin:2px 0}}.conversation:hover,.conversation.active{{background:#3a3a37}}.conversation.active{{box-shadow:inset 3px 0 var(--accent)}}.conversation strong{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:560}}.conversation span{{display:block;color:var(--muted);font-size:11px;margin-top:3px}}.empty{{color:var(--muted);padding:15px;display:none}}iframe{{width:100%;height:100vh;border:0;background:#f5f3ee}}@media(max-width:720px){{body{{grid-template-columns:1fr;overflow:auto}}.sidebar{{height:46vh}}.viewer{{height:54vh}}.viewer iframe{{height:54vh}}}}
+:root{{--sidebar:#181817;--sidebar2:#242422;--ink:#eee;--muted:#a9a7a1;--accent:#d97757;--sidebar-w:290px}}*{{box-sizing:border-box}}html,body{{height:100%;margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}}body{{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);overflow:hidden;background:#f5f3ee}}.sidebar{{height:100vh;background:var(--sidebar);color:var(--ink);display:flex;flex-direction:column;border-right:1px solid #343431;overflow-x:auto;resize:horizontal;min-width:200px;max-width:50vw}}.brand{{padding:15px 16px 10px;font-size:20px;font-weight:700}}.tools{{padding:0 10px 10px;display:grid;gap:7px}}.tools input,.tools select{{width:100%;border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:8px 9px}}.links{{display:flex;gap:9px;padding:0 14px 10px;flex-wrap:wrap;align-items:center}}.links a{{color:#c9c6bf;font-size:12px}}.lang-switch{{border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:4px 6px;font:inherit;font-size:12px}}.conversation-list{{overflow:auto;padding:4px 7px 16px}}.conversation{{display:block;color:var(--ink);text-decoration:none;padding:9px 10px;border-radius:8px;margin:2px 0}}.conversation:hover,.conversation.active{{background:#3a3a37}}.conversation.active{{box-shadow:inset 3px 0 var(--accent)}}.conversation strong{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:560}}.conversation span{{display:block;color:var(--muted);font-size:11px;margin-top:3px}}.empty{{color:var(--muted);padding:15px;display:none}}iframe{{width:100%;height:100vh;border:0;background:#f5f3ee}}@media(max-width:720px){{body{{grid-template-columns:1fr;overflow:auto}}.sidebar{{height:46vh;resize:none}}.viewer{{height:54vh}}.viewer iframe{{height:54vh}}}}
 </style></head><body><nav class="sidebar"><div class="brand">{html.escape(ti("brand"))}</div><div class="tools"><input id="search" type="search" placeholder="{html.escape(ti("search_placeholder"))}"><select id="sort"><option value="newest">{html.escape(ti("sort_newest"))}</option><option value="oldest">{html.escape(ti("sort_oldest"))}</option><option value="title">{html.escape(ti("sort_title"))}</option></select></div><div class="links"><a href="RESTORATION_NOTES.md" target="_blank">{html.escape(ti("link_description"))}</a><a href="raw/artifacts/INDEX.html" target="_blank">{html.escape(ti("link_artifacts"))}</a><a href="project_documents/" target="_blank">{html.escape(ti("link_projects"))}</a><a href="SUMMARY.json" target="_blank">{html.escape(ti("link_summary"))}</a><select class="lang-switch" id="lang-switch">{"".join(lang_options)}</select></div><div class="conversation-list" id="conversation-list">""" + "".join(cards) + f"""<div class="empty" id="empty">{html.escape(ti("empty"))}</div></div></nav><main class="viewer"><iframe name="chat-frame" id="chat-frame" src="__FIRST_CHAT__" title="{html.escape(ti("iframe_title"))}"></iframe></main><script>
 const list=document.getElementById('conversation-list'), search=document.getElementById('search'), sort=document.getElementById('sort');
 const conversations=[...list.querySelectorAll('.conversation')];
