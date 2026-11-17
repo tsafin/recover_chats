@@ -476,7 +476,7 @@ def render_chat_html(
 <style>
 :root{{--bg:#f5f3ee;--paper:#fff;--ink:#24231f;--muted:#706d65;--line:#ddd8ce;--user:#e8f1ff;--ai:#fff8e8;--accent:#b44b2a;--code:#202124}}
 *{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}
-a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) var(--aside-w,340px);gap:20px;max-width:1500px;margin:auto;padding:20px}}
+a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) var(--aside-w,340px);gap:20px;max-width:1500px;margin:auto;padding:20px;transition:grid-template-columns .2s ease}}.layout.preview-open{{--aside-w:min(72vw,1050px)}}
 main{{min-width:0}}.hero,.message,.panel{{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #0000000a}}
 .hero{{padding:22px;margin-bottom:18px}}.hero h1{{margin:0 0 8px;font-size:26px}}.meta{{color:var(--muted)}}
 .message{{padding:18px;margin:14px 0}}.message.user{{border-left:5px solid #3478c8;background:linear-gradient(90deg,var(--user),#fff 20%)}}
@@ -487,10 +487,10 @@ details.tool-call{{background:#f7f7f5;border-color:#e8e6e0}}details.tool-call>su
 pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}}
 .chips{{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}}.chip,.file-link{{display:inline-block;border:1px solid #b7cce4;border-radius:999px;padding:3px 9px;background:#f3f8ff;text-decoration:none;font-size:12px}}
 .resource{{border-left:3px solid #6f9d68;padding:8px 10px;margin:7px 0;background:#f4faf2}}.missing{{border-color:#c8a34c;background:#fff9e9}}.source-reference{{color:#6b6255;text-decoration-style:dotted}}
-aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:horizontal;min-width:240px;max-width:80vw}}.panel{{padding:15px}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
-.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}}.preview-box iframe{{width:100%;height:48vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{max-height:60vh;overflow:auto;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:18px;cursor:pointer}}
+aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:horizontal;min-width:240px;max-width:80vw}}aside.preview-open{{resize:none;overflow:hidden}}.panel{{padding:15px}}.panel.previewing{{height:100%;display:flex;flex-direction:column}}.panel.previewing>h2,.panel.previewing>.artifact-toolbar,.panel.previewing>.artifact-list,.panel.previewing>details{{display:none}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
+.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;min-height:0}}.preview-box.open{{display:flex;flex:1;flex-direction:column}}.preview-head{{display:flex;flex:0 0 auto;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}}.preview-title{{overflow-wrap:anywhere}}.preview-box iframe{{width:100%;flex:1;min-height:0;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{flex:1;min-height:0;overflow:auto;padding:18px 22px;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:22px;cursor:pointer}}
 .lang-switch{{position:absolute;top:18px;right:30px;border:1px solid var(--line);border-radius:8px;background:white;padding:4px 6px;font:inherit;font-size:12px}}
-@media(max-width:900px){{.layout{{grid-template-columns:1fr;padding:12px}}aside{{position:static;height:auto;order:-1;resize:none}}.lang-switch{{right:14px}}}}
+@media(max-width:900px){{.layout,.layout.preview-open{{grid-template-columns:1fr;padding:12px}}aside{{position:static;height:auto;order:-1;resize:none;max-width:none}}aside.preview-open{{height:calc(100vh - 24px)}}.lang-switch{{right:14px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
         '<section class="hero">', f"<h1>{html.escape(title)}</h1>",
@@ -560,7 +560,9 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:h
         parts.append("</article>")
     parts.append("</main><aside><section class=\"panel\">")
     parts.append(f'<h2>{t("artifacts_title")} <span class="count">{len(artifact_rows)}</span></h2>')
-    parts.append(f'<div class="artifact-toolbar"><label for="artifact-sort" class="count">{t("sort_label")}</label><select id="artifact-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="version">{t("sort_version")}</option></select></div><div class="artifact-list" id="artifact-list">')
+    parts.append(f'<div class="artifact-toolbar"><label for="artifact-sort" class="count">{t("sort_label")}</label><select id="artifact-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="version">{t("sort_version")}</option></select></div>')
+    parts.append(f'<div class="preview-box" id="preview-box"><div class="preview-head"><strong class="preview-title" id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div></div>')
+    parts.append('<div class="artifact-list" id="artifact-list">')
     for item in artifact_rows:
         local = str(item["local"])
         date = str(item["date"])
@@ -576,15 +578,26 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:h
                         md_content = md_path.read_text(encoding="utf-8", errors="replace")
                     except Exception:
                         md_content = ""
+                    # application/json is a raw-text element: HTML entities such as
+                    # &quot; are not decoded there.  Keep valid JSON and escape only
+                    # characters that could terminate the script element.
+                    md_json = (
+                        json.dumps(md_content, ensure_ascii=False)
+                        .replace("&", "\\u0026")
+                        .replace("<", "\\u003c")
+                        .replace(">", "\\u003e")
+                        .replace("\u2028", "\\u2028")
+                        .replace("\u2029", "\\u2029")
+                    )
                     parts.append(f'<button type="button" class="preview-button" data-md="1" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
-                    parts.append(f'<script type="application/json" class="md-data" data-src="{href(local)}">{html.escape(json.dumps(md_content, ensure_ascii=False))}</script>')
+                    parts.append(f'<script type="application/json" class="md-data" data-src="{href(local)}">{md_json}</script>')
                 else:
                     parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
             parts.append('</div>')
         else:
             parts.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
         parts.append('</article>')
-    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div></div>')
+    parts.append('</div>')
     parts.append(f'<details><summary>{t("regenerated_title")} <span class="count">{len(regenerated)}</span></summary><ul>')
     for path in regenerated:
         if path.is_file():
@@ -623,11 +636,19 @@ function sortFiles(){
   }).forEach(node=>fileList.appendChild(node));
 }
 fileSort.addEventListener('change',sortFiles); sortFiles();
-// Preview: md files get rendered markdown; others use iframe
+// Preview replaces the artifact list in-place and expands the right pane.
 const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), mdPreview=document.getElementById('md-preview');
-function closePreview(){previewIframe.removeAttribute('src');previewIframe.style.display='none';mdPreview.innerHTML='';mdPreview.style.display='none';previewBox.classList.remove('open');}
+const previewAside=previewBox.closest('aside'), previewPanel=previewBox.closest('.panel'), previewLayout=previewBox.closest('.layout');
+let previewScrollTop=0;
+function closePreview(){
+  previewIframe.removeAttribute('src');previewIframe.style.display='none';
+  mdPreview.innerHTML='';mdPreview.style.display='none';previewBox.classList.remove('open');
+  previewPanel.classList.remove('previewing');previewAside.classList.remove('preview-open');previewLayout.classList.remove('preview-open');
+  previewAside.scrollTop=previewScrollTop;
+}
 document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{
   var title=button.dataset.title, isMd=button.dataset.md==='1';
+  if(!previewBox.classList.contains('open'))previewScrollTop=previewAside.scrollTop;
   previewTitle.textContent=title;
   if(isMd){
     previewIframe.style.display='none';previewIframe.removeAttribute('src');
@@ -635,9 +656,7 @@ document.querySelectorAll('.preview-button').forEach(button=>button.addEventList
     var card=button.closest('.artifact-card');
     var mdEl=card?card.querySelector('.md-data'):null;
     var mdText='';
-    if(mdEl){
-      try{mdText=JSON.parse(mdEl.textContent);}catch(e){mdText='';}
-    }
+    if(mdEl){try{mdText=JSON.parse(mdEl.textContent);}catch(error){console.error('Markdown preview JSON:',error);}}
     mdPreview.innerHTML=mdText?renderMarkdownSimple(mdText):'<p style="color:#999">Empty.</p>';
   }else{
     var src=button.dataset.src;
@@ -646,37 +665,36 @@ document.querySelectorAll('.preview-button').forEach(button=>button.addEventList
     previewIframe.src=src;
   }
   previewBox.classList.add('open');
-  previewBox.parentElement.scrollTop=previewBox.offsetTop-20;
+  previewPanel.classList.add('previewing');previewAside.classList.add('preview-open');previewLayout.classList.add('preview-open');
+  previewAside.scrollTop=0;
 }));
 document.getElementById('preview-close').addEventListener('click',closePreview);
-// Minimal Markdown renderer for preview pane
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&previewBox.classList.contains('open'))closePreview();});
+// Small dependency-free renderer for local previews. The Python generator
+// already guarantees that mdText is a string; all source HTML is escaped here.
 function renderMarkdownSimple(md){
-  var h=function(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  // Extract code blocks first to protect them
-  var codeBlocks=[];
-  md=md.replace(/```(\\w*)\\n([\\s\\S]*?)```/g,function(m,lang,code){
-    var i=codeBlocks.length;codeBlocks.push('<pre><code>'+h(code)+'</code></pre>');return '\@@CODE'+i+'\\x00';
+  const escapeHtml=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const codeBlocks=[];
+  md=md.replace(/```([^\\n]*)\\n([\\s\\S]*?)```/g,(match,lang,code)=>{
+    const index=codeBlocks.length;
+    codeBlocks.push('<pre><code>'+escapeHtml(code)+'</code></pre>');
+    return '@@CODEBLOCK'+index+'@@';
   });
-  md=h(md);
-  // Headings
-  md=md.replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h1>$1</h1>');
-  // Bold/italic
-  md=md.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>').replace(/\\*(.+?)\\*/g,'<em>$1</em>');
-  // Inline code
-  md=md.replace(/`([^`]+)`/g,'<code>$1</code>');
-  // Links
-  md=md.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'<a href="$2">$1</a>');
-  // Lists
-  md=md.replace(/^(\\s*)[-*] (.+)$/gm,'<li>$2</li>');
-  md=md.replace(/(<li>[\\s\\S]*?<\\/li>)/g,'<ul>$1</ul>');
-  // Paragraphs
-  md=md.split(/\\n\\n+/).map(function(b){
-    if(/^<(h[1-6]|ul|ol|pre|blockquote)/.test(b.trim()))return b;
-    return b.trim()?'<p>'+b.replace(/\\n/g,'<br>')+'</p>':'';
+  md=escapeHtml(md);
+  md=md.replace(/^###\\s+(.+)$/gm,'<h3>$1</h3>').replace(/^##\\s+(.+)$/gm,'<h2>$1</h2>').replace(/^#\\s+(.+)$/gm,'<h1>$1</h1>');
+  md=md.replace(/^&gt;\\s?(.*)$/gm,'<blockquote>$1</blockquote>');
+  md=md.replace(/(?:^(?:\\s*[-*+]\\s+.+)\\n?)+/gm,block=>'<ul>'+block.trim().split('\\n').map(line=>'<li>'+line.replace(/^\\s*[-*+]\\s+/,'')+'</li>').join('')+'</ul>');
+  md=md.replace(/(?:^(?:\\s*\\d+[.]\\s+.+)\\n?)+/gm,block=>'<ol>'+block.trim().split('\\n').map(line=>'<li>'+line.replace(/^\\s*\\d+[.]\\s+/, '')+'</li>').join('')+'</ol>');
+  md=md.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>').replace(/~~(.+?)~~/g,'<del>$1</del>').replace(/\\*([^*\\n]+)\\*/g,'<em>$1</em>');
+  md=md.replace(/`([^`\\n]+)`/g,'<code>$1</code>');
+  md=md.replace(/\\[([^\\]]+)\\]\\(([^)\\s]+)\\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  md=md.split(/\\n\\s*\\n/).map(block=>{
+    const value=block.trim();
+    if(!value)return '';
+    if(/^<(?:h[1-6]|ul|ol|pre|blockquote)/.test(value)||/^@@CODEBLOCK\\d+@@$/.test(value))return value;
+    return '<p>'+value.replace(/\\n/g,'<br>')+'</p>';
   }).join('\\n');
-  // Restore code blocks
-  md=md.replace(/\@@CODE(\\d+)\\x00/g,function(m,i){return codeBlocks[+i]||''});
-  return md;
+  return md.replace(/@@CODEBLOCK(\\d+)@@/g,(match,index)=>codeBlocks[Number(index)]||'');
 }
 </script></body></html>""".replace("__SORT_LOCALE__", sort_locale)
     parts.append(js_block)
