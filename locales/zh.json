@@ -16,6 +16,8 @@
     "empty": "未找到结果",
     "iframe_title": "Claude 对话",
     "page_title": "Claude 导出",
+    "theme_light": "切换到浅色主题",
+    "theme_dark": "切换到深色主题",
     "card_artifacts": "个工件",
     "card_files": "个文件"
   },

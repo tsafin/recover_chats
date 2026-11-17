@@ -16,6 +16,8 @@
     "empty": "Ничего не найдено",
     "iframe_title": "Диалог Claude",
     "page_title": "Claude export",
+    "theme_light": "Включить светлую тему",
+    "theme_dark": "Включить тёмную тему",
     "card_artifacts": "арт.",
     "card_files": "файл."
   },

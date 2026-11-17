@@ -16,6 +16,8 @@
     "empty": "Nothing found",
     "iframe_title": "Claude conversation",
     "page_title": "Claude export",
+    "theme_light": "Use light theme",
+    "theme_dark": "Use dark theme",
     "card_artifacts": "art.",
     "card_files": "files"
   },
