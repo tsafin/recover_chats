@@ -28,7 +28,12 @@ def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export/conversations").resolve()
     report: list[dict[str, object]] = []
     seen: set[tuple[Path, str]] = set()
-    candidates = sorted(path for path in root.glob("*/files/**/*.py") if path.is_file())
+    candidates = sorted(
+        path
+        for pattern in ("*/files/**/*.py", "*/inline_scripts/**/*.py")
+        for path in root.glob(pattern)
+        if path.is_file()
+    )
     for source in candidates:
         text = source.read_text(encoding="utf-8", errors="replace")
         outputs = OFFICE_RE.findall(text)

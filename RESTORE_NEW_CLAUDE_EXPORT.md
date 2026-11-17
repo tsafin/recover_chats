@@ -10,6 +10,7 @@
 - `regenerate_python_office.py` — безопасная попытка запуска восстановленных Python-генераторов Office-файлов;
 - `regenerate_node_office.py` — попытка запуска восстановленных Node.js-генераторов PPTX/DOCX/XLSX;
 - `regenerate_recipe_docx.py` — воспроизведение многошаговых DOCX-рецептов, сохранённых в tool calls (TeX, рисунки, Pandoc и `python-docx`);
+- `regenerate_known_office.py` — воспроизведение явно проверенных рецептов и точных операций переименования для известных DOCX/XLSX этого экспорта;
 - `check_restoration.py` — проверка локальных ссылок и целостности полученных Office-файлов.
 
 Главный результат — каталог, переданный через `--output`. В примерах ниже он называется `restored_export_new`.
@@ -61,10 +62,10 @@ new_export/
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas pillow
+python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas pillow cairosvg
 ```
 
-Для одного только основного восстановления достаточно `markdown-it-py`. Остальные пакеты нужны возможным генераторам, извлечённым из диалогов.
+Для одного только основного восстановления достаточно `markdown-it-py`. Остальные пакеты нужны возможным генераторам, извлечённым из диалогов. `cairosvg` преобразует восстановленные SVG-схемы в PNG перед их встраиванием в DOCX.
 
 ### Системные зависимости для DOCX-рецептов на Ubuntu/WSL
 
@@ -120,6 +121,8 @@ ZIP-файлы и восстановленные генераторы следу
 
 `regenerate_recipe_docx.py` также выполняет восстановленные промежуточные Python-скрипты, но копирует их и исходники в одноразовый временный каталог. В каталог диалога копируется только итоговый проверенный DOCX.
 
+`regenerate_known_office.py` содержит явный перечень проверенных рецептов этого набора. Он не является универсальным распознавателем: для другого экспорта перечень следует расширять только после аудита соответствующих tool calls и входных файлов.
+
 Поэтому перегенерацию следует выполнять:
 
 - в контейнере, VM или отдельном непривилегированном окружении;
@@ -132,7 +135,7 @@ ZIP-файлы и восстановленные генераторы следу
 
 ## 5. Первый проход: распаковка и восстановление
 
-Все команды далее выполняются из каталога, где лежат пять актуальных Python-скриптов.
+Все команды далее выполняются из каталога, где лежат актуальные Python-скрипты этого проекта.
 
 Задайте отдельные пути. Пример:
 
@@ -264,7 +267,21 @@ Supported recipes use recovered local inputs.
 
 Успешная запись должна иметь `status: "ok"`. Поле `validation` показывает CRC, число абзацев, таблиц, встроенных изображений и результат дополнительной проверки LibreOffice.
 
-### 8.2. Обновление HTML после всех перегенераций
+### 8.2. Проверенные рецепты DOCX/XLSX конкретного экспорта
+
+Для этого репозитория дополнительно выполните:
+
+```bash
+python3 regenerate_known_office.py \
+  restored_export_new/conversations \
+  restored_export_new/runtime/node_modules
+```
+
+Скрипт воспроизводит только явно сопоставленные рецепты: Pandoc из восстановленного Markdown, вызовы восстановленного `md2docx.js`, полные Node.js-рецепты с диаграммами и точные `cp`/rename-операции из tool calls. Каждый результат проверяется как ZIP/CRC и повторно открывается через `python-docx` или `openpyxl`. Отчёт: `<output>/known_office_regeneration_report.json`.
+
+Если нужное имя присутствует только в `presented_files.json`, но отсутствует финальный исходник, шаблон, изображение или набор данных, скрипт не создаёт фиктивную замену. Такой файл остаётся в списке невосстановленных с объяснимой причиной.
+
+### 8.3. Обновление HTML после всех перегенераций
 
 После любой перегенерации повторите основной запуск с теми же `--source` и `--output`:
 
@@ -424,6 +441,10 @@ python3 regenerate_node_office.py \
 python3 regenerate_recipe_docx.py \
   /data/restored_export_new/conversations
 
+python3 regenerate_known_office.py \
+  /data/restored_export_new/conversations \
+  /data/restored_export_new/runtime/node_modules
+
 python3 restore_export.py \
   --source /data/new_export \
   --output /data/restored_export_new
@@ -444,7 +465,7 @@ python3 check_restoration.py \
 4. Проверить доступность Python и `markdown_it`.
 5. Выполнить первый проход `restore_export.py` и изучить `archive_report.json`.
 6. Не запускать недоверенные генераторы без допустимой изоляции.
-7. При разрешённой перегенерации запустить Python-, Node- и DOCX-рецепт-конвейеры по отдельности и сохранить их отчёты.
+7. При разрешённой перегенерации запустить Python-, Node-, общий DOCX-рецепт и проверенные Office-рецепты по отдельности и сохранить их отчёты.
 8. Выполнить второй проход `restore_export.py` после перегенерации.
 9. Запустить `check_restoration.py` и не завершать задачу, пока не объяснены битые ссылки или повреждённые Office-файлы.
 10. Сообщить пользователю абсолютный путь к `INDEX.html`, число диалогов, файлов, артефактов, успешных перегенераций и оставшиеся ограничения.

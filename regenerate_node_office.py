@@ -23,7 +23,13 @@ def main() -> int:
     runtime = Path(sys.argv[2] if len(sys.argv) > 2 else "restored_export/runtime/node_modules").resolve()
     report: list[dict[str, object]] = []
     seen: set[tuple[Path, str]] = set()
-    for source in sorted(conversations.glob("*/files/**/*.js")):
+    candidates = sorted(
+        path
+        for pattern in ("*/files/**/*.js", "*/inline_scripts/**/*.js")
+        for path in conversations.glob(pattern)
+        if path.is_file()
+    )
+    for source in candidates:
         text = source.read_text(encoding="utf-8", errors="replace")
         if not LIB_RE.search(text) or "writeFile" not in text:
             continue
