@@ -1,0 +1,70 @@
+{
+  "lang_code": "en",
+  "lang_name": "English",
+  "html_lang": "en",
+
+  "index": {
+    "brand": "Claude · restored",
+    "search_placeholder": "Search conversations…",
+    "sort_newest": "Newest first",
+    "sort_oldest": "Oldest first",
+    "sort_title": "By name",
+    "link_description": "Notes",
+    "link_artifacts": "Artifacts",
+    "link_projects": "Projects",
+    "link_summary": "Summary",
+    "empty": "Nothing found",
+    "iframe_title": "Claude conversation",
+    "page_title": "Claude export",
+    "card_artifacts": "art.",
+    "card_files": "files"
+  },
+
+  "chat": {
+    "uuid_label": "UUID",
+    "created_label": "Created",
+    "link_readme": "README",
+    "link_markdown": "Markdown",
+    "link_json": "JSON",
+    "link_files_json": "Files JSON",
+    "link_artifacts_json": "Artifacts JSON",
+    "link_all_artifacts": "All Claude Artifacts",
+    "role_user": "You",
+    "role_assistant": "Claude",
+    "thinking": "Thinking",
+    "tool_prefix": "🛠",
+    "command_label": "Command",
+    "result_prefix": "Result",
+    "metadata_only": "⚠ Metadata only",
+    "binary_missing": "binary data missing from export",
+    "artifacts_title": "Artifacts",
+    "sort_label": "Sort",
+    "sort_newest": "Newest first",
+    "sort_oldest": "Oldest first",
+    "sort_name": "By name",
+    "sort_version": "By version",
+    "sort_revisions": "By revisions",
+    "date_unknown": "date unknown",
+    "version_label": "version",
+    "button_open": "Open",
+    "button_preview": "Preview",
+    "preview_title": "Preview",
+    "preview_close": "Close",
+    "preview_iframe_title": "Artifact preview",
+    "metadata_missing_warning": "⚠ Only metadata remains in export",
+    "regenerated_title": "Regenerated",
+    "recovered_files_title": "Recovered files",
+    "file_modified": "modified",
+    "file_created": "created",
+    "file_revisions": "revisions",
+    "source_reference_title": "Link from original Markdown; target file may not be in export",
+    "untitled": "Untitled"
+  },
+
+  "artifacts_index": {
+    "page_title": "Claude Artifacts",
+    "heading": "Claude Artifacts"
+  },
+
+  "sort_locale": "en"
+}

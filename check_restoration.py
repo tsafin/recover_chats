@@ -28,8 +28,8 @@ def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export").resolve()
     broken: list[dict[str, str]] = []
     links = 0
-    html_files = [root / "INDEX.html", root / "raw" / "artifacts" / "INDEX.html"]
-    html_files.extend(root.glob("conversations/*/chat.html"))
+    html_files = list(root.glob("INDEX*.html")) + [root / "raw" / "artifacts" / "INDEX.html"]
+    html_files.extend(root.glob("conversations/*/chat*.html"))
     html_files = [path for path in html_files if path.exists()]
     for html_file in html_files:
         parser = Links()

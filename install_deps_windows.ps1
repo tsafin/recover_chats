@@ -76,6 +76,9 @@ After the first restore_export.py pass, install npm packages with:
 
   npm install --prefix <output>/runtime pptxgenjs@3.12.0 docx@9.5.1 react react-dom react-icons sharp --no-audit --no-fund
 
+The restore script auto-generates HTML in all languages found in recover_chats/locales/.
+To add a new language, create a locales/<lang>.json file and re-run restore_export.py.
+
 "@ -ForegroundColor Gray
 }
 

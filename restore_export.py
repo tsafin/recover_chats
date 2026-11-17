@@ -35,6 +35,75 @@ WRITE_TOOLS = {"Write", "create_file"}
 EDIT_TOOLS = {"Edit", "str_replace"}
 PRESENT_TOOLS = {"present_files", "SendUserFile", "mcp__Claude_Docs__export"}
 
+# ── i18n ──────────────────────────────────────────────────────────────
+
+LOCALES_DIR = Path(__file__).resolve().parent / "locales"
+DEFAULT_LANG = "ru"
+
+
+def load_locales() -> dict[str, dict[str, Any]]:
+    """Load all locale JSON files from the locales/ directory."""
+    locales: dict[str, dict[str, Any]] = {}
+    if not LOCALES_DIR.is_dir():
+        return locales
+    for path in sorted(LOCALES_DIR.glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        code = data.get("lang_code") or path.stem
+        locales[code] = data
+    return locales
+
+
+LOCALES = load_locales()
+AVAILABLE_LANGS = list(LOCALES.keys())
+
+
+def L(key: str, lang: str | None = None) -> str:
+    """Look up a dotted i18n key like 'index.brand' in the given locale.
+
+    Falls back to DEFAULT_LANG, then to the key itself.
+    """
+    lang = lang or DEFAULT_LANG
+    locale = LOCALES.get(lang) or LOCALES.get(DEFAULT_LANG) or {}
+    parts = key.split(".")
+    value: Any = locale
+    for part in parts:
+        if isinstance(value, dict):
+            value = value.get(part)
+        else:
+            value = None
+            break
+    if value is None and lang != DEFAULT_LANG:
+        return L(key, DEFAULT_LANG)
+    return str(value) if value is not None else key
+
+
+def lang_suffix(lang: str) -> str:
+    """Return '' for the default language, '_<lang>' otherwise."""
+    return "" if lang == DEFAULT_LANG else f"_{lang}"
+
+
+def lang_switcher_html(current_lang: str, relative_root: str = "") -> str:
+    """Render a compact language switcher dropdown.
+
+    *relative_root* is the path prefix from the HTML file to the output root
+    (e.g. '../..' for a conversation page, '' for INDEX.html).
+    """
+    if len(AVAILABLE_LANGS) < 2:
+        return ""
+    options = []
+    for code in AVAILABLE_LANGS:
+        name = LOCALES[code].get("lang_name", code)
+        selected = " selected" if code == current_lang else ""
+        options.append(f'<option value="{code}"{selected}>{html.escape(name)}</option>')
+    return (
+        f'<select class="lang-switch" onchange="'
+        f"document.cookie='restore_lang='+this.value+';path=/;max-age=31536000';"
+        f"var d=document.location.pathname.replace(/(_(en|zh|ru))\\.html/,'.html');"
+        f"var base=d.replace(/\\.html$/,'');"
+        f"document.location.href=base+('{{suffix}}'==='{{default}}'?'':'_'+this.value)+'.html'"
+        f'">{"".join(options)}</select>'
+    ).replace("{{suffix}}", "").replace("{{default}}", DEFAULT_LANG)
+
 
 def json_dump(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -258,9 +327,10 @@ MARKDOWN = MarkdownIt(
 class LinkRenderedMarkdown(HTMLParser):
     """Post-process safe Markdown HTML and attach recovered local files."""
 
-    def __init__(self, resource_links: dict[str, str]) -> None:
+    def __init__(self, resource_links: dict[str, str], lang: str = DEFAULT_LANG) -> None:
         super().__init__(convert_charrefs=True)
         self.resource_links = resource_links
+        self._lang = lang
         self.output: list[str] = []
         self.literal_depth = 0
 
@@ -284,7 +354,7 @@ class LinkRenderedMarkdown(HTMLParser):
         if tag == "a" and mapped_link:
             rendered_attrs.append(' class="file-link"')
         elif tag == "a" and unresolved_relative:
-            rendered_attrs.append(' class="source-reference" data-original-reference="true" title="Ссылка из исходного Markdown; целевой файл мог не войти в экспорт"')
+            rendered_attrs.append(f' class="source-reference" data-original-reference="true" title="{html.escape(L("chat.source_reference_title", self._lang))}"')
         self.output.append(f"<{tag}{''.join(rendered_attrs)}>")
         if tag in {"a", "code", "pre"}:
             self.literal_depth += 1
@@ -308,8 +378,8 @@ class LinkRenderedMarkdown(HTMLParser):
             self.output.append(linked_text(data, self.resource_links))
 
 
-def render_markdown(value: Any, resource_links: dict[str, str]) -> str:
-    parser = LinkRenderedMarkdown(resource_links)
+def render_markdown(value: Any, resource_links: dict[str, str], lang: str = DEFAULT_LANG) -> str:
+    parser = LinkRenderedMarkdown(resource_links, lang)
     parser.feed(MARKDOWN.render(str(value or "")))
     parser.close()
     return "".join(parser.output)
@@ -321,8 +391,10 @@ def render_chat_html(
     presented: list[dict[str, Any]],
     attachment_records: list[dict[str, Any]],
     conv_dir: Path,
+    lang: str = DEFAULT_LANG,
 ) -> str:
-    title = str(conversation.get("name") or "Untitled")
+    t = lambda key: L(f"chat.{key}", lang)
+    title = str(conversation.get("name") or t("untitled"))
     resource_links: dict[str, str] = {}
     basename_links: dict[str, str] = {}
     for item in recovered:
@@ -399,57 +471,58 @@ def render_chat_html(
             "previewable": path.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".html", ".htm", ".txt", ".md", ".json", ".csv"},
         })
 
-    parts = ["""<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    parts = [f"""<!doctype html>
+<html lang="{L("html_lang", lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--bg:#f5f3ee;--paper:#fff;--ink:#24231f;--muted:#706d65;--line:#ddd8ce;--user:#e8f1ff;--ai:#fff8e8;--accent:#b44b2a;--code:#202124}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-a{color:#0758a8}.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;max-width:1500px;margin:auto;padding:20px}
-main{min-width:0}.hero,.message,.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #0000000a}
-.hero{padding:22px;margin-bottom:18px}.hero h1{margin:0 0 8px;font-size:26px}.meta{color:var(--muted)}
-.message{padding:18px;margin:14px 0}.message.user{border-left:5px solid #3478c8;background:linear-gradient(90deg,var(--user),#fff 20%)}
-.message.assistant{border-left:5px solid #d18a24;background:linear-gradient(90deg,var(--ai),#fff 20%)}
-.head{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}.role{font-weight:750}.time{color:var(--muted);font-size:12px}.text{white-space:pre-wrap;overflow-wrap:anywhere}.markdown{overflow-wrap:anywhere}.markdown>:first-child{margin-top:0}.markdown>:last-child{margin-bottom:0}.markdown h1,.markdown h2,.markdown h3{line-height:1.25;margin:1.1em 0 .45em}.markdown h1{font-size:1.55em}.markdown h2{font-size:1.3em}.markdown h3{font-size:1.12em}.markdown blockquote{margin:10px 0;padding:3px 14px;border-left:4px solid #b9b4aa;color:#555;background:#f7f6f3}.markdown table{border-collapse:collapse;display:block;max-width:100%;overflow:auto}.markdown th,.markdown td{border:1px solid var(--line);padding:6px 10px}.markdown th{background:#f1efe9}.markdown img{max-width:100%}.markdown ul,.markdown ol{padding-left:25px}
-details{border:1px solid var(--line);border-radius:9px;margin:10px 0;background:#fafafa}summary{cursor:pointer;padding:9px 12px;font-weight:650}details>div,details>pre{margin:0;padding:12px;border-top:1px solid var(--line)}
-pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}
-.chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}.chip,.file-link{display:inline-block;border:1px solid #b7cce4;border-radius:999px;padding:3px 9px;background:#f3f8ff;text-decoration:none;font-size:12px}
-.resource{border-left:3px solid #6f9d68;padding:8px 10px;margin:7px 0;background:#f4faf2}.missing{border-color:#c8a34c;background:#fff9e9}.source-reference{color:#6b6255;text-decoration-style:dotted}
-aside{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}.panel{padding:15px}.panel h2{font-size:15px;margin:15px 0 7px}.panel h2:first-child{margin-top:0}.panel ul{padding-left:20px;margin:5px 0}.panel li{margin:5px 0;overflow-wrap:anywhere}.count{color:var(--muted);font-size:12px}
-.artifact-toolbar{display:flex;gap:7px;align-items:center;margin:8px 0 11px}.artifact-toolbar select{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}.artifact-list,.file-list{display:grid;gap:8px}.artifact-card,.file-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}.artifact-name,.file-name{font-weight:650;overflow-wrap:anywhere}.artifact-meta,.file-meta{color:var(--muted);font-size:12px;margin:3px 0 7px}.artifact-actions{display:flex;gap:7px;flex-wrap:wrap}.artifact-actions a,.artifact-actions button,.file-card a{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}.artifact-missing{color:#936b16;font-size:12px}.preview-box{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}.preview-box.open{display:block}.preview-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}.preview-box iframe{width:100%;height:48vh;border:1px solid var(--line);border-radius:8px;background:white}.preview-close{border:0;background:transparent;font-size:18px;cursor:pointer}
-@media(max-width:900px){.layout{grid-template-columns:1fr;padding:12px}aside{position:static;height:auto;order:-1}}
+:root{{--bg:#f5f3ee;--paper:#fff;--ink:#24231f;--muted:#706d65;--line:#ddd8ce;--user:#e8f1ff;--ai:#fff8e8;--accent:#b44b2a;--code:#202124}}
+*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}
+a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;max-width:1500px;margin:auto;padding:20px}}
+main{{min-width:0}}.hero,.message,.panel{{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #0000000a}}
+.hero{{padding:22px;margin-bottom:18px}}.hero h1{{margin:0 0 8px;font-size:26px}}.meta{{color:var(--muted)}}
+.message{{padding:18px;margin:14px 0}}.message.user{{border-left:5px solid #3478c8;background:linear-gradient(90deg,var(--user),#fff 20%)}}
+.message.assistant{{border-left:5px solid #d18a24;background:linear-gradient(90deg,var(--ai),#fff 20%)}}
+.head{{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}}.role{{font-weight:750}}.time{{color:var(--muted);font-size:12px}}.text{{white-space:pre-wrap;overflow-wrap:anywhere}}.markdown{{overflow-wrap:anywhere}}.markdown>:first-child{{margin-top:0}}.markdown>:last-child{{margin-bottom:0}}.markdown h1,.markdown h2,.markdown h3{{line-height:1.25;margin:1.1em 0 .45em}}.markdown h1{{font-size:1.55em}}.markdown h2{{font-size:1.3em}}.markdown h3{{font-size:1.12em}}.markdown blockquote{{margin:10px 0;padding:3px 14px;border-left:4px solid #b9b4aa;color:#555;background:#f7f6f3}}.markdown table{{border-collapse:collapse;display:block;max-width:100%;overflow:auto}}.markdown th,.markdown td{{border:1px solid var(--line);padding:6px 10px}}.markdown th{{background:#f1efe9}}.markdown img{{max-width:100%}}.markdown ul,.markdown ol{{padding-left:25px}}
+details{{border:1px solid var(--line);border-radius:9px;margin:10px 0;background:#fafafa}}summary{{cursor:pointer;padding:9px 12px;font-weight:650}}details>div,details>pre{{margin:0;padding:12px;border-top:1px solid var(--line)}}
+pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}}
+.chips{{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}}.chip,.file-link{{display:inline-block;border:1px solid #b7cce4;border-radius:999px;padding:3px 9px;background:#f3f8ff;text-decoration:none;font-size:12px}}
+.resource{{border-left:3px solid #6f9d68;padding:8px 10px;margin:7px 0;background:#f4faf2}}.missing{{border-color:#c8a34c;background:#fff9e9}}.source-reference{{color:#6b6255;text-decoration-style:dotted}}
+aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}}.panel{{padding:15px}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
+.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}}.preview-box iframe{{width:100%;height:48vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:18px;cursor:pointer}}
+.lang-switch{{position:absolute;top:18px;right:30px;border:1px solid var(--line);border-radius:8px;background:white;padding:4px 6px;font:inherit;font-size:12px}}
+@media(max-width:900px){{.layout{{grid-template-columns:1fr;padding:12px}}aside{{position:static;height:auto;order:-1}}.lang-switch{{right:14px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
         '<section class="hero">', f"<h1>{html.escape(title)}</h1>",
-        f'<div class="meta">UUID: <code>{html.escape(str(conversation.get("uuid") or ""))}</code><br>Создан: {html.escape(str(conversation.get("created_at") or ""))}</div>',
-        '<div class="chips"><a class="chip" href="README.md">README</a><a class="chip" href="chat.md">Markdown</a><a class="chip" href="conversation.json">JSON</a><a class="chip" href="recovered_files.json">Файлы JSON</a><a class="chip" href="presented_files.json">Артефакты JSON</a><a class="chip" href="../../raw/artifacts/">Все Claude Artifacts</a></div>',
+        f'<div class="meta">{t("uuid_label")}: <code>{html.escape(str(conversation.get("uuid") or ""))}</code><br>{t("created_label")}: {html.escape(str(conversation.get("created_at") or ""))}</div>',
+        f'<div class="chips"><a class="chip" href="README.md">{t("link_readme")}</a><a class="chip" href="chat.md">{t("link_markdown")}</a><a class="chip" href="conversation.json">{t("link_json")}</a><a class="chip" href="recovered_files.json">{t("link_files_json")}</a><a class="chip" href="presented_files.json">{t("link_artifacts_json")}</a><a class="chip" href="../../raw/artifacts/">{t("link_all_artifacts")}</a></div>',
         "</section>",
     ])
     command_index = 0
     for msg_index, message in enumerate(conversation.get("chat_messages") or [], 1):
         sender = message.get("sender")
-        role = "Вы" if sender == "human" else "Claude"
+        role = t("role_user") if sender == "human" else t("role_assistant")
         css_role = "user" if sender == "human" else "assistant"
         parts.append(f'<article class="message {css_role}" id="message-{msg_index}"><div class="head"><span class="role">{role}</span><span class="time">{html.escape(str(message.get("created_at") or ""))}</span></div>')
         for attachment in attachments_by_message.get(str(message.get("uuid")), []):
             parts.append(f'<div class="resource">📎 <a href="{href(str(attachment["local_path"]))}">{html.escape(str(attachment["name"]))}</a> <span class="count">{attachment.get("bytes", 0)} bytes</span></div>')
         blocks = message.get("content") or []
         if not blocks and message.get("text"):
-            parts.append(f'<div class="markdown">{render_markdown(message["text"], resource_links)}</div>')
+            parts.append(f'<div class="markdown">{render_markdown(message["text"], resource_links, lang)}</div>')
         for block in blocks:
             if not isinstance(block, dict):
                 continue
             kind = block.get("type")
             if kind == "text":
-                parts.append(f'<div class="markdown">{render_markdown(block.get("text"), resource_links)}</div>')
+                parts.append(f'<div class="markdown">{render_markdown(block.get("text"), resource_links, lang)}</div>')
             elif kind == "thinking":
-                parts.append(f'<details><summary>Размышления</summary><div class="markdown">{render_markdown(block.get("thinking"), resource_links)}</div></details>')
+                parts.append(f'<details><summary>{t("thinking")}</summary><div class="markdown">{render_markdown(block.get("thinking"), resource_links, lang)}</div></details>')
             elif kind == "tool_use":
                 name = str(block.get("name") or "tool")
                 inp = block.get("input") or {}
                 chips: list[str] = []
                 if name in COMMAND_TOOLS:
                     command_index += 1
-                    chips.append(f'<a class="chip" href="commands/{command_index:04d}_{safe_component(name, 30)}.sh">Команда #{command_index}</a>')
+                    chips.append(f'<a class="chip" href="commands/{command_index:04d}_{safe_component(name, 30)}.sh">{t("command_label")} #{command_index}</a>')
                 if isinstance(inp, dict):
                     candidate_paths = [inp.get("file_path"), inp.get("path")]
                     candidate_paths.extend(inp.get("filepaths") or [])
@@ -470,56 +543,57 @@ aside{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto}.panel{pa
                         if local:
                             resources.append(f'<div class="resource">✅ <a href="{href(local)}">{html.escape(Path(raw_path).name)}</a> · {html.escape(str(item.get("mime_type") or ""))}</div>')
                         else:
-                            resources.append(f'<div class="resource missing">⚠ Только метаданные: {html.escape(raw_path)} · UUID <code>{html.escape(str(item.get("uuid") or ""))}</code></div>')
+                            resources.append(f'<div class="resource missing">{t("metadata_only")}: {html.escape(raw_path)} · UUID <code>{html.escape(str(item.get("uuid") or ""))}</code></div>')
                     elif item.get("type") == "text":
-                        texts.append(render_markdown(item.get("text"), resource_links))
+                        texts.append(render_markdown(item.get("text"), resource_links, lang))
                 if resources or texts:
-                    parts.append(f'<details><summary>Результат: {html.escape(str(block.get("name") or "tool"))}</summary>{"".join(resources)}')
+                    parts.append(f'<details><summary>{t("result_prefix")}: {html.escape(str(block.get("name") or "tool"))}</summary>{"".join(resources)}')
                     for text_item in texts:
                         parts.append(f'<div class="markdown">{text_item}</div>')
                     parts.append("</details>")
             elif kind in {"image", "document"}:
-                parts.append(f'<div class="resource missing">{html.escape(kind.title())}: UUID <code>{html.escape(str(block.get("file_uuid") or ""))}</code> — бинарные данные отсутствуют в экспорте</div>')
+                parts.append(f'<div class="resource missing">{html.escape(kind.title())}: UUID <code>{html.escape(str(block.get("file_uuid") or ""))}</code> — {t("binary_missing")}</div>')
         parts.append("</article>")
     parts.append("</main><aside><section class=\"panel\">")
-    parts.append(f'<h2>Артефакты <span class="count">{len(artifact_rows)}</span></h2>')
-    parts.append('<div class="artifact-toolbar"><label for="artifact-sort" class="count">Сортировка</label><select id="artifact-sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="name">По имени</option><option value="version">По версии</option></select></div><div class="artifact-list" id="artifact-list">')
+    parts.append(f'<h2>{t("artifacts_title")} <span class="count">{len(artifact_rows)}</span></h2>')
+    parts.append(f'<div class="artifact-toolbar"><label for="artifact-sort" class="count">{t("sort_label")}</label><select id="artifact-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="version">{t("sort_version")}</option></select></div><div class="artifact-list" id="artifact-list">')
     for item in artifact_rows:
         local = str(item["local"])
         date = str(item["date"])
-        visible_date = date.replace("T", " ")[:16] if date else "дата неизвестна"
-        parts.append(f'<article class="artifact-card" data-date="{html.escape(date, quote=True)}" data-name="{html.escape(str(item["name"]).casefold(), quote=True)}" data-version="{item["version"]}"><div class="artifact-name">{html.escape(str(item["name"]))}</div><div class="artifact-meta">{html.escape(visible_date)} · версия {item["version"]}</div>')
+        visible_date = date.replace("T", " ")[:16] if date else t("date_unknown")
+        parts.append(f'<article class="artifact-card" data-date="{html.escape(date, quote=True)}" data-name="{html.escape(str(item["name"]).casefold(), quote=True)}" data-version="{item["version"]}"><div class="artifact-name">{html.escape(str(item["name"]))}</div><div class="artifact-meta">{html.escape(visible_date)} · {t("version_label")} {item["version"]}</div>')
         if local:
-            parts.append(f'<div class="artifact-actions"><a href="{href(local)}" target="_blank">Открыть</a>')
+            parts.append(f'<div class="artifact-actions"><a href="{href(local)}" target="_blank">{t("button_open")}</a>')
             if item["previewable"]:
-                parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}">Превью</button>')
+                parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
             parts.append('</div>')
         else:
-            parts.append('<div class="artifact-missing" title="Байты отсутствуют в экспорте">⚠ В экспорте остались только метаданные</div>')
+            parts.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
         parts.append('</article>')
-    parts.append('</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong id="preview-title">Превью</strong><button class="preview-close" id="preview-close" title="Закрыть">×</button></div><iframe id="artifact-preview" title="Предпросмотр артефакта"></iframe></div>')
-    parts.append(f'<details><summary>Перегенерировано <span class="count">{len(regenerated)}</span></summary><ul>')
+    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}"></iframe></div>')
+    parts.append(f'<details><summary>{t("regenerated_title")} <span class="count">{len(regenerated)}</span></summary><ul>')
     for path in regenerated:
         if path.is_file():
             parts.append(f'<li><a href="{href(path.relative_to(conv_dir).as_posix())}" target="_blank">{html.escape(path.name)}</a></li>')
     parts.append("</ul></details>")
-    parts.append(f'<details><summary>Восстановленные файлы <span class="count">{len(recovered)}</span></summary><div class="artifact-toolbar"><label for="file-sort" class="count">Сортировка</label><select id="file-sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="name">По имени</option><option value="revisions">По ревизиям</option></select></div><div class="file-list" id="file-list">')
+    parts.append(f'<details><summary>{t("recovered_files_title")} <span class="count">{len(recovered)}</span></summary><div class="artifact-toolbar"><label for="file-sort" class="count">{t("sort_label")}</label><select id="file-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="revisions">{t("sort_revisions")}</option></select></div><div class="file-list" id="file-list">')
     for item in recovered:
         updated = str(item.get("updated_at") or item.get("created_at") or "")
         created = str(item.get("created_at") or updated)
         revisions = int(item.get("revisions") or len(item.get("origins") or []) or 1)
-        visible_updated = updated.replace("T", " ")[:16] if updated else "дата неизвестна"
-        created_note = f' · создан {created.replace("T", " ")[:16]}' if created and created != updated else ""
+        visible_updated = updated.replace("T", " ")[:16] if updated else t("date_unknown")
+        created_note = f' · {t("file_created")} {created.replace("T", " ")[:16]}' if created and created != updated else ""
         filename = Path(str(item["local_path"])).name
-        parts.append(f'<article class="file-card" data-date="{html.escape(updated, quote=True)}" data-name="{html.escape(filename.casefold(), quote=True)}" data-revisions="{revisions}"><div class="file-name">{html.escape(filename)}</div><div class="file-meta">изменён {html.escape(visible_updated)}{html.escape(created_note)} · ревизий {revisions}</div><a href="{href(str(item["local_path"]))}" target="_blank">Открыть</a></article>')
+        parts.append(f'<article class="file-card" data-date="{html.escape(updated, quote=True)}" data-name="{html.escape(filename.casefold(), quote=True)}" data-revisions="{revisions}"><div class="file-name">{html.escape(filename)}</div><div class="file-meta">{t("file_modified")} {html.escape(visible_updated)}{html.escape(created_note)} · {t("file_revisions")} {revisions}</div><a href="{href(str(item["local_path"]))}" target="_blank">{t("button_open")}</a></article>')
     parts.append("</div></details></section></aside></div>")
-    parts.append("""<script>
+    sort_locale = L("sort_locale", lang)
+    js_block = """<script>
 const artifactList=document.getElementById('artifact-list');
 const artifactSort=document.getElementById('artifact-sort');
 function sortArtifacts(){
   const mode=artifactSort.value;
   [...artifactList.children].sort((a,b)=>{
-    if(mode==='name') return a.dataset.name.localeCompare(b.dataset.name,'ru');
+    if(mode==='name') return a.dataset.name.localeCompare(b.dataset.name,'__SORT_LOCALE__');
     if(mode==='version') return Number(b.dataset.version)-Number(a.dataset.version) || b.dataset.date.localeCompare(a.dataset.date);
     return mode==='oldest' ? a.dataset.date.localeCompare(b.dataset.date) : b.dataset.date.localeCompare(a.dataset.date);
   }).forEach(node=>artifactList.appendChild(node));
@@ -529,8 +603,8 @@ const fileList=document.getElementById('file-list'), fileSort=document.getElemen
 function sortFiles(){
   const mode=fileSort.value;
   [...fileList.children].sort((a,b)=>{
-    if(mode==='name') return a.dataset.name.localeCompare(b.dataset.name,'ru');
-    if(mode==='revisions') return Number(b.dataset.revisions)-Number(a.dataset.revisions) || b.dataset.date.localeCompare(a.dataset.date);
+    if(mode==='name') return a.dataset.name.localeCompare(b.dataset.name,'__SORT_LOCALE__');
+    if(mode==='revisions') return Number(b.dataset.revisions)-Number(a.dataset.revisions) || b.dataset.date.localeCompare(b.dataset.date);
     return mode==='oldest' ? a.dataset.date.localeCompare(b.dataset.date) : b.dataset.date.localeCompare(a.dataset.date);
   }).forEach(node=>fileList.appendChild(node));
 }
@@ -538,7 +612,8 @@ fileSort.addEventListener('change',sortFiles); sortFiles();
 const previewBox=document.getElementById('preview-box'), preview=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title');
 document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{preview.src=button.dataset.src;previewTitle.textContent=button.dataset.title;previewBox.classList.add('open');previewBox.scrollIntoView({behavior:'smooth',block:'start'});}));
 document.getElementById('preview-close').addEventListener('click',()=>{preview.removeAttribute('src');previewBox.classList.remove('open');});
-</script></body></html>""")
+</script></body></html>""".replace("__SORT_LOCALE__", sort_locale)
+    parts.append(js_block)
     return "".join(parts)
 
 
@@ -551,25 +626,44 @@ def render_index(rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_index_html(rows: list[dict[str, Any]]) -> str:
+def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> str:
+    ti = lambda key: L(f"index.{key}", lang)
+    sort_locale = L("sort_locale", lang)
     cards = []
     newest_rows = sorted(rows, key=lambda item: (str(item.get("updated") or item["created"]), str(item["title"])), reverse=True)
     for row in newest_rows:
         activity_date = str(row.get("updated") or row["created"])
+        suffix = lang_suffix(lang)
         cards.append(
-            f'<a class="conversation" href="conversations/{href(str(row["folder"]))}/chat.html" target="chat-frame" data-date="{html.escape(activity_date, quote=True)}" data-title="{html.escape(str(row["title"]).casefold(), quote=True)}"><strong>{html.escape(str(row["title"]))}</strong>'
-            f'<span>{html.escape(activity_date.replace("T", " ")[:16])} · {row["presented_files"]} арт. · {row["recovered_files"]} файл.</span></a>'
+            f'<a class="conversation" href="conversations/{href(str(row["folder"]))}/chat{suffix}.html" target="chat-frame" data-date="{html.escape(activity_date, quote=True)}" data-title="{html.escape(str(row["title"]).casefold(), quote=True)}"><strong>{html.escape(str(row["title"]))}</strong>'
+            f'<span>{html.escape(activity_date.replace("T", " ")[:16])} · {row["presented_files"]} {ti("card_artifacts")} · {row["recovered_files"]} {ti("card_files")}</span></a>'
         )
-    first_url = f'conversations/{href(str(newest_rows[0]["folder"]))}/chat.html' if newest_rows else ""
-    return """<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Claude export</title><style>
-:root{--sidebar:#181817;--sidebar2:#242422;--ink:#eee;--muted:#a9a7a1;--accent:#d97757}*{box-sizing:border-box}html,body{height:100%;margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}body{display:grid;grid-template-columns:290px minmax(0,1fr);overflow:hidden;background:#f5f3ee}.sidebar{height:100vh;background:var(--sidebar);color:var(--ink);display:flex;flex-direction:column;border-right:1px solid #343431}.brand{padding:15px 16px 10px;font-size:20px;font-weight:700}.tools{padding:0 10px 10px;display:grid;gap:7px}.tools input,.tools select{width:100%;border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:8px 9px}.links{display:flex;gap:9px;padding:0 14px 10px;flex-wrap:wrap}.links a{color:#c9c6bf;font-size:12px}.conversation-list{overflow:auto;padding:4px 7px 16px}.conversation{display:block;color:var(--ink);text-decoration:none;padding:9px 10px;border-radius:8px;margin:2px 0}.conversation:hover,.conversation.active{background:#3a3a37}.conversation.active{box-shadow:inset 3px 0 var(--accent)}.conversation strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:560}.conversation span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.empty{color:var(--muted);padding:15px;display:none}iframe{width:100%;height:100vh;border:0;background:#f5f3ee}@media(max-width:720px){body{grid-template-columns:1fr;overflow:auto}.sidebar{height:46vh}.viewer{height:54vh}.viewer iframe{height:54vh}}
-</style></head><body><nav class="sidebar"><div class="brand">Claude · восстановлено</div><div class="tools"><input id="search" type="search" placeholder="Поиск диалогов…"><select id="sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="title">По названию</option></select></div><div class="links"><a href="RESTORATION_NOTES.md" target="_blank">Описание</a><a href="raw/artifacts/INDEX.html" target="_blank">Artifacts</a><a href="project_documents/" target="_blank">Projects</a><a href="SUMMARY.json" target="_blank">Итоги</a></div><div class="conversation-list" id="conversation-list">""" + "".join(cards) + """<div class="empty" id="empty">Ничего не найдено</div></div></nav><main class="viewer"><iframe name="chat-frame" id="chat-frame" src="__FIRST_CHAT__" title="Диалог Claude"></iframe></main><script>
+    first_url = f'conversations/{href(str(newest_rows[0]["folder"]))}/chat{lang_suffix(lang)}.html' if newest_rows else ""
+
+    # Language switcher options
+    lang_options = []
+    for code in AVAILABLE_LANGS:
+        name = LOCALES[code].get("lang_name", code)
+        sel = " selected" if code == lang else ""
+        lang_options.append(f'<option value="{code}"{sel}>{html.escape(name)}</option>')
+
+    return f"""<!doctype html><html lang="{L("html_lang", lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(ti("page_title"))}</title><style>
+:root{{--sidebar:#181817;--sidebar2:#242422;--ink:#eee;--muted:#a9a7a1;--accent:#d97757}}*{{box-sizing:border-box}}html,body{{height:100%;margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}}body{{display:grid;grid-template-columns:290px minmax(0,1fr);overflow:hidden;background:#f5f3ee}}.sidebar{{height:100vh;background:var(--sidebar);color:var(--ink);display:flex;flex-direction:column;border-right:1px solid #343431}}.brand{{padding:15px 16px 10px;font-size:20px;font-weight:700}}.tools{{padding:0 10px 10px;display:grid;gap:7px}}.tools input,.tools select{{width:100%;border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:8px 9px}}.links{{display:flex;gap:9px;padding:0 14px 10px;flex-wrap:wrap;align-items:center}}.links a{{color:#c9c6bf;font-size:12px}}.lang-switch{{border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:4px 6px;font:inherit;font-size:12px}}.conversation-list{{overflow:auto;padding:4px 7px 16px}}.conversation{{display:block;color:var(--ink);text-decoration:none;padding:9px 10px;border-radius:8px;margin:2px 0}}.conversation:hover,.conversation.active{{background:#3a3a37}}.conversation.active{{box-shadow:inset 3px 0 var(--accent)}}.conversation strong{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:560}}.conversation span{{display:block;color:var(--muted);font-size:11px;margin-top:3px}}.empty{{color:var(--muted);padding:15px;display:none}}iframe{{width:100%;height:100vh;border:0;background:#f5f3ee}}@media(max-width:720px){{body{{grid-template-columns:1fr;overflow:auto}}.sidebar{{height:46vh}}.viewer{{height:54vh}}.viewer iframe{{height:54vh}}}}
+</style></head><body><nav class="sidebar"><div class="brand">{html.escape(ti("brand"))}</div><div class="tools"><input id="search" type="search" placeholder="{html.escape(ti("search_placeholder"))}"><select id="sort"><option value="newest">{html.escape(ti("sort_newest"))}</option><option value="oldest">{html.escape(ti("sort_oldest"))}</option><option value="title">{html.escape(ti("sort_title"))}</option></select></div><div class="links"><a href="RESTORATION_NOTES.md" target="_blank">{html.escape(ti("link_description"))}</a><a href="raw/artifacts/INDEX.html" target="_blank">{html.escape(ti("link_artifacts"))}</a><a href="project_documents/" target="_blank">{html.escape(ti("link_projects"))}</a><a href="SUMMARY.json" target="_blank">{html.escape(ti("link_summary"))}</a><select class="lang-switch" id="lang-switch">{"".join(lang_options)}</select></div><div class="conversation-list" id="conversation-list">""" + "".join(cards) + f"""<div class="empty" id="empty">{html.escape(ti("empty"))}</div></div></nav><main class="viewer"><iframe name="chat-frame" id="chat-frame" src="__FIRST_CHAT__" title="{html.escape(ti("iframe_title"))}"></iframe></main><script>
 const list=document.getElementById('conversation-list'), search=document.getElementById('search'), sort=document.getElementById('sort');
 const conversations=[...list.querySelectorAll('.conversation')];
-function update(){const q=search.value.trim().toLocaleLowerCase('ru'); conversations.forEach(x=>x.hidden=q&&!x.dataset.title.includes(q)); const visible=conversations.filter(x=>!x.hidden); visible.sort((a,b)=>sort.value==='title'?a.dataset.title.localeCompare(b.dataset.title,'ru'):(sort.value==='oldest'?a.dataset.date.localeCompare(b.dataset.date):b.dataset.date.localeCompare(a.dataset.date))).forEach(x=>list.appendChild(x)); document.getElementById('empty').style.display=visible.length?'none':'block';}
+function update(){{const q=search.value.trim().toLocaleLowerCase('{sort_locale}'); conversations.forEach(x=>x.hidden=q&&!x.dataset.title.includes(q)); const visible=conversations.filter(x=>!x.hidden); visible.sort((a,b)=>sort.value==='title'?a.dataset.title.localeCompare(b.dataset.title,'{sort_locale}'):(sort.value==='oldest'?a.dataset.date.localeCompare(b.dataset.date):b.dataset.date.localeCompare(a.dataset.date))).forEach(x=>list.appendChild(x)); document.getElementById('empty').style.display=visible.length?'none':'block';}}
 search.addEventListener('input',update);sort.addEventListener('change',update);update();
-conversations.forEach(link=>link.addEventListener('click',()=>{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');}));
+conversations.forEach(link=>link.addEventListener('click',()=>{{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');}}));
 if(conversations.length) conversations[0].classList.add('active');
+// Language switcher: set cookie and redirect to the localized index
+document.getElementById('lang-switch').addEventListener('change',function(){{
+  var lang=this.value;
+  document.cookie='restore_lang='+lang+';path=/;max-age=31536000';
+  var suffix=lang==='{DEFAULT_LANG}'?'':'_'+lang;
+  var base=document.location.pathname.replace(/(_(en|zh|ru))?\.html$/,'');
+  document.location.href=base+suffix+'.html';
+}});
 </script></body></html>""".replace("__FIRST_CHAT__", html.escape(first_url, quote=True))
 
 
@@ -710,10 +804,9 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
 
     json_dump(conv_dir / "recovered_files.json", recovered_manifest)
     json_dump(conv_dir / "presented_files.json", presented)
-    (conv_dir / "chat.html").write_text(
-        render_chat_html(conversation, recovered_manifest, presented, attachment_records, conv_dir),
-        encoding="utf-8",
-    )
+    for lang in AVAILABLE_LANGS:
+        chat_html = render_chat_html(conversation, recovered_manifest, presented, attachment_records, conv_dir, lang)
+        (conv_dir / f"chat{lang_suffix(lang)}.html").write_text(chat_html, encoding="utf-8")
     if edit_failures:
         json_dump(conv_dir / "unapplied_edits.json", edit_failures)
     office_presented = sum(Path(str(item.get("file_path") or "")).suffix.lower() in OFFICE_EXTENSIONS for item in presented)
@@ -787,7 +880,7 @@ def copy_export_sections(raw_dir: Path, output: Path) -> None:
             target = next((path for path in candidates if path.exists()), metadata_file)
             target_rel = target.relative_to(artifacts_dir).as_posix() if target else ""
             cards.append(f'<article><h2><a href="{href(target_rel)}">{html.escape(title)}</a></h2><div>{html.escape(kind)} · <code>{html.escape(artifact_dir.name)}</code></div></article>')
-        artifact_html = """<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Claude Artifacts</title><style>body{max-width:1000px;margin:35px auto;padding:0 20px;background:#f5f3ee;font:15px/1.5 system-ui;color:#24231f}article{background:white;border:1px solid #ddd8ce;border-radius:12px;padding:14px 18px;margin:10px 0}h2{font-size:18px;margin:0 0 4px}a{color:#0758a8}code,article div{color:#706d65}</style></head><body><h1>Claude Artifacts</h1>""" + "".join(cards) + "</body></html>"
+        artifact_html = f"""<!doctype html><html lang="{L("html_lang", DEFAULT_LANG)}"><head><meta charset="utf-8"><title>{html.escape(L("artifacts_index.page_title", DEFAULT_LANG))}</title><style>body{{max-width:1000px;margin:35px auto;padding:0 20px;background:#f5f3ee;font:15px/1.5 system-ui;color:#24231f}}article{{background:white;border:1px solid #ddd8ce;border-radius:12px;padding:14px 18px;margin:10px 0}}h2{{font-size:18px;margin:0 0 4px}}a{{color:#0758a8}}code,article div{{color:#706d65}}</style></head><body><h1>{html.escape(L("artifacts_index.heading", DEFAULT_LANG))}</h1>""" + "".join(cards) + "</body></html>"
         (artifacts_dir / "INDEX.html").write_text(artifact_html, encoding="utf-8")
 
 
@@ -817,7 +910,8 @@ def main() -> int:
     rows.sort(key=lambda row: (row["created"], row["title"]))
     json_dump(output / "restoration_report.json", rows)
     (output / "INDEX.md").write_text(render_index(rows), encoding="utf-8")
-    (output / "INDEX.html").write_text(render_index_html(rows), encoding="utf-8")
+    for lang in AVAILABLE_LANGS:
+        (output / f"INDEX{lang_suffix(lang)}.html").write_text(render_index_html(rows, lang), encoding="utf-8")
     copy_export_sections(raw_dir, output)
 
     totals = Counter()

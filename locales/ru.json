@@ -1,0 +1,70 @@
+{
+  "lang_code": "ru",
+  "lang_name": "Русский",
+  "html_lang": "ru",
+
+  "index": {
+    "brand": "Claude · восстановлено",
+    "search_placeholder": "Поиск диалогов…",
+    "sort_newest": "Сначала новые",
+    "sort_oldest": "Сначала старые",
+    "sort_title": "По названию",
+    "link_description": "Описание",
+    "link_artifacts": "Artifacts",
+    "link_projects": "Projects",
+    "link_summary": "Итоги",
+    "empty": "Ничего не найдено",
+    "iframe_title": "Диалог Claude",
+    "page_title": "Claude export",
+    "card_artifacts": "арт.",
+    "card_files": "файл."
+  },
+
+  "chat": {
+    "uuid_label": "UUID",
+    "created_label": "Создан",
+    "link_readme": "README",
+    "link_markdown": "Markdown",
+    "link_json": "JSON",
+    "link_files_json": "Файлы JSON",
+    "link_artifacts_json": "Артефакты JSON",
+    "link_all_artifacts": "Все Claude Artifacts",
+    "role_user": "Вы",
+    "role_assistant": "Claude",
+    "thinking": "Размышления",
+    "tool_prefix": "🛠",
+    "command_label": "Команда",
+    "result_prefix": "Результат",
+    "metadata_only": "⚠ Только метаданные",
+    "binary_missing": "бинарные данные отсутствуют в экспорте",
+    "artifacts_title": "Артефакты",
+    "sort_label": "Сортировка",
+    "sort_newest": "Сначала новые",
+    "sort_oldest": "Сначала старые",
+    "sort_name": "По имени",
+    "sort_version": "По версии",
+    "sort_revisions": "По ревизиям",
+    "date_unknown": "дата неизвестна",
+    "version_label": "версия",
+    "button_open": "Открыть",
+    "button_preview": "Превью",
+    "preview_title": "Превью",
+    "preview_close": "Закрыть",
+    "preview_iframe_title": "Предпросмотр артефакта",
+    "metadata_missing_warning": "⚠ В экспорте остались только метаданные",
+    "regenerated_title": "Перегенерировано",
+    "recovered_files_title": "Восстановленные файлы",
+    "file_modified": "изменён",
+    "file_created": "создан",
+    "file_revisions": "ревизий",
+    "source_reference_title": "Ссылка из исходного Markdown; целевой файл мог не войти в экспорт",
+    "untitled": "Untitled"
+  },
+
+  "artifacts_index": {
+    "page_title": "Claude Artifacts",
+    "heading": "Claude Artifacts"
+  },
+
+  "sort_locale": "ru"
+}

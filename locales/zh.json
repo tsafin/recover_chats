@@ -1,0 +1,70 @@
+{
+  "lang_code": "zh",
+  "lang_name": "中文",
+  "html_lang": "zh-CN",
+
+  "index": {
+    "brand": "Claude · 已恢复",
+    "search_placeholder": "搜索对话…",
+    "sort_newest": "最新优先",
+    "sort_oldest": "最旧优先",
+    "sort_title": "按名称",
+    "link_description": "说明",
+    "link_artifacts": "Artifacts",
+    "link_projects": "项目",
+    "link_summary": "汇总",
+    "empty": "未找到结果",
+    "iframe_title": "Claude 对话",
+    "page_title": "Claude 导出",
+    "card_artifacts": "个工件",
+    "card_files": "个文件"
+  },
+
+  "chat": {
+    "uuid_label": "UUID",
+    "created_label": "创建于",
+    "link_readme": "README",
+    "link_markdown": "Markdown",
+    "link_json": "JSON",
+    "link_files_json": "文件 JSON",
+    "link_artifacts_json": "工件 JSON",
+    "link_all_artifacts": "全部 Claude Artifacts",
+    "role_user": "用户",
+    "role_assistant": "Claude",
+    "thinking": "思考过程",
+    "tool_prefix": "🛠",
+    "command_label": "命令",
+    "result_prefix": "结果",
+    "metadata_only": "⚠ 仅元数据",
+    "binary_missing": "导出中缺少二进制数据",
+    "artifacts_title": "工件",
+    "sort_label": "排序",
+    "sort_newest": "最新优先",
+    "sort_oldest": "最旧优先",
+    "sort_name": "按名称",
+    "sort_version": "按版本",
+    "sort_revisions": "按修订数",
+    "date_unknown": "日期未知",
+    "version_label": "版本",
+    "button_open": "打开",
+    "button_preview": "预览",
+    "preview_title": "预览",
+    "preview_close": "关闭",
+    "preview_iframe_title": "工件预览",
+    "metadata_missing_warning": "⚠ 导出中仅保留元数据",
+    "regenerated_title": "已重新生成",
+    "recovered_files_title": "已恢复文件",
+    "file_modified": "修改于",
+    "file_created": "创建于",
+    "file_revisions": "次修订",
+    "source_reference_title": "来自原始 Markdown 的链接；目标文件可能未包含在导出中",
+    "untitled": "未命名"
+  },
+
+  "artifacts_index": {
+    "page_title": "Claude Artifacts",
+    "heading": "Claude Artifacts"
+  },
+
+  "sort_locale": "zh"
+}
