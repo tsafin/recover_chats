@@ -570,8 +570,16 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:h
             parts.append(f'<div class="artifact-actions"><a href="{href(local)}" target="_blank">{t("button_open")}</a>')
             if item["previewable"]:
                 is_md = Path(str(item["name"])).suffix.lower() in {".md", ".markdown"}
-                md_flag = ' data-md="1"' if is_md else ""
-                parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}"{md_flag}>{t("button_preview")}</button>')
+                if is_md:
+                    md_path = conv_dir / local
+                    try:
+                        md_content = md_path.read_text(encoding="utf-8", errors="replace")
+                    except Exception:
+                        md_content = ""
+                    parts.append(f'<button type="button" class="preview-button" data-md="1" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
+                    parts.append(f'<script type="application/json" class="md-data" data-src="{href(local)}">{html.escape(json.dumps(md_content, ensure_ascii=False))}</script>')
+                else:
+                    parts.append(f'<button type="button" class="preview-button" data-src="{href(local)}" data-title="{html.escape(str(item["name"]), quote=True)}">{t("button_preview")}</button>')
             parts.append('</div>')
         else:
             parts.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
@@ -619,15 +627,19 @@ fileSort.addEventListener('change',sortFiles); sortFiles();
 const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), mdPreview=document.getElementById('md-preview');
 function closePreview(){previewIframe.removeAttribute('src');previewIframe.style.display='none';mdPreview.innerHTML='';mdPreview.style.display='none';previewBox.classList.remove('open');}
 document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{
-  var src=button.dataset.src, title=button.dataset.title, isMd=button.dataset.md==='1';
+  var title=button.dataset.title, isMd=button.dataset.md==='1';
   previewTitle.textContent=title;
   if(isMd){
     previewIframe.style.display='none';previewIframe.removeAttribute('src');
     mdPreview.style.display='block';
-    fetch(src).then(function(r){return r.text()}).then(function(txt){
-      mdPreview.innerHTML=renderMarkdownSimple(txt);
-    }).catch(function(){mdPreview.innerHTML='<p style="color:#999">Failed to load.</p>'});
+    var next=button.nextElementSibling;
+    var mdText='';
+    if(next&&next.classList&&next.classList.contains('md-data')){
+      try{mdText=JSON.parse(next.textContent);}catch(e){mdText='';}
+    }
+    mdPreview.innerHTML=mdText?renderMarkdownSimple(mdText):'<p style="color:#999">Empty.</p>';
   }else{
+    var src=button.dataset.src;
     mdPreview.style.display='none';mdPreview.innerHTML='';
     previewIframe.style.display='block';
     previewIframe.src=src;
