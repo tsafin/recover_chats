@@ -476,8 +476,8 @@ def render_chat_html(
 <style>
 :root{{--bg:#f5f3ee;--paper:#fff;--ink:#24231f;--muted:#706d65;--line:#ddd8ce;--user:#e8f1ff;--ai:#fff8e8;--accent:#b44b2a;--code:#202124}}
 *{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}
-a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) var(--aside-w,340px);gap:20px;max-width:1500px;margin:auto;padding:20px;transition:grid-template-columns .2s ease}}.layout.preview-open{{--aside-w:min(72vw,1050px)}}
-main{{min-width:0}}.hero,.message,.panel{{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #0000000a}}
+a{{color:#0758a8}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) 8px var(--aside-w,340px);gap:0;max-width:1500px;margin:auto;padding:20px}}
+main{{min-width:0;padding-right:10px}}.hero,.message,.panel{{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #0000000a}}
 .hero{{padding:22px;margin-bottom:18px}}.hero h1{{margin:0 0 8px;font-size:26px}}.meta{{color:var(--muted)}}
 .message{{padding:18px;margin:14px 0}}.message.user{{border-left:5px solid #3478c8;background:linear-gradient(90deg,var(--user),#fff 20%)}}
 .message.assistant{{border-left:5px solid #d18a24;background:linear-gradient(90deg,var(--ai),#fff 20%)}}
@@ -487,10 +487,11 @@ details.tool-call{{background:#f7f7f5;border-color:#e8e6e0}}details.tool-call>su
 pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}}
 .chips{{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}}.chip,.file-link{{display:inline-block;border:1px solid #b7cce4;border-radius:999px;padding:3px 9px;background:#f3f8ff;text-decoration:none;font-size:12px}}
 .resource{{border-left:3px solid #6f9d68;padding:8px 10px;margin:7px 0;background:#f4faf2}}.missing{{border-color:#c8a34c;background:#fff9e9}}.source-reference{{color:#6b6255;text-decoration-style:dotted}}
-aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:horizontal;min-width:240px;max-width:80vw}}aside.preview-open{{resize:none;overflow:hidden}}.panel{{padding:15px}}.panel.previewing{{height:100%;display:flex;flex-direction:column}}.panel.previewing>h2,.panel.previewing>.artifact-toolbar,.panel.previewing>.artifact-list,.panel.previewing>details{{display:none}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
-.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;min-height:0}}.preview-box.open{{display:flex;flex:1;flex-direction:column}}.preview-head{{display:flex;flex:0 0 auto;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}}.preview-title{{overflow-wrap:anywhere}}.preview-box iframe{{width:100%;flex:1;min-height:0;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{flex:1;min-height:0;overflow:auto;padding:18px 22px;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:22px;cursor:pointer}}
+.right-resizer{{position:sticky;top:0;height:100vh;cursor:col-resize;touch-action:none}}.right-resizer::after{{content:"";position:absolute;left:3px;top:12px;bottom:12px;width:2px;border-radius:2px;background:#cbc6bc;opacity:.45}}.right-resizer:hover::after,.right-resizer.dragging::after{{background:#3478c8;opacity:1}}body.resizing{{cursor:col-resize;user-select:none}}
+aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;min-width:0;margin-left:10px}}.panel{{padding:15px}}.panel h2{{font-size:15px;margin:15px 0 7px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:12px}}
+.artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:white;padding:6px}}.artifact-list,.file-list{{display:grid;gap:8px}}.artifact-card,.file-card{{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfaf7}}.artifact-name,.file-name{{font-weight:650;overflow-wrap:anywhere}}.artifact-meta,.file-meta{{color:var(--muted);font-size:12px;margin:3px 0 7px}}.artifact-actions{{display:flex;gap:7px;flex-wrap:wrap}}.artifact-actions a,.artifact-actions button,.file-card a{{border:1px solid #b7cce4;border-radius:7px;padding:3px 7px;background:#f3f8ff;color:#0758a8;font:inherit;font-size:12px;text-decoration:none;cursor:pointer}}.artifact-missing{{color:#936b16;font-size:12px}}.preview-box{{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}}.preview-title{{overflow-wrap:anywhere}}.preview-box iframe{{width:100%;height:55vh;border:1px solid var(--line);border-radius:8px;background:white}}.preview-box .md-preview{{max-height:55vh;overflow:auto;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:white}}.preview-close{{border:0;background:transparent;font-size:22px;cursor:pointer}}
 .lang-switch{{position:absolute;top:18px;right:30px;border:1px solid var(--line);border-radius:8px;background:white;padding:4px 6px;font:inherit;font-size:12px}}
-@media(max-width:900px){{.layout,.layout.preview-open{{grid-template-columns:1fr;padding:12px}}aside{{position:static;height:auto;order:-1;resize:none;max-width:none}}aside.preview-open{{height:calc(100vh - 24px)}}.lang-switch{{right:14px}}}}
+@media(max-width:900px){{.layout{{grid-template-columns:1fr;padding:12px}}main{{padding-right:0}}.right-resizer{{display:none}}aside{{position:static;height:auto;order:-1;margin-left:0}}.lang-switch{{right:14px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
         '<section class="hero">', f"<h1>{html.escape(title)}</h1>",
@@ -558,10 +559,9 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:h
             elif kind in {"image", "document"}:
                 parts.append(f'<div class="resource missing">{html.escape(kind.title())}: UUID <code>{html.escape(str(block.get("file_uuid") or ""))}</code> — {t("binary_missing")}</div>')
         parts.append("</article>")
-    parts.append("</main><aside><section class=\"panel\">")
+    parts.append(f'</main><div class="right-resizer" id="right-resizer" role="separator" aria-orientation="vertical" aria-label="{html.escape(t("artifacts_title"), quote=True)}"></div><aside><section class="panel">')
     parts.append(f'<h2>{t("artifacts_title")} <span class="count">{len(artifact_rows)}</span></h2>')
     parts.append(f'<div class="artifact-toolbar"><label for="artifact-sort" class="count">{t("sort_label")}</label><select id="artifact-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="version">{t("sort_version")}</option></select></div>')
-    parts.append(f'<div class="preview-box" id="preview-box"><div class="preview-head"><strong class="preview-title" id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div></div>')
     parts.append('<div class="artifact-list" id="artifact-list">')
     for item in artifact_rows:
         local = str(item["local"])
@@ -597,7 +597,7 @@ aside{{position:sticky;top:12px;height:calc(100vh - 24px);overflow:auto;resize:h
         else:
             parts.append(f'<div class="artifact-missing" title="">⚠ {t("metadata_missing_warning")}</div>')
         parts.append('</article>')
-    parts.append('</div>')
+    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong class="preview-title" id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div></div>')
     parts.append(f'<details><summary>{t("regenerated_title")} <span class="count">{len(regenerated)}</span></summary><ul>')
     for path in regenerated:
         if path.is_file():
@@ -636,24 +636,45 @@ function sortFiles(){
   }).forEach(node=>fileList.appendChild(node));
 }
 fileSort.addEventListener('change',sortFiles); sortFiles();
-// Preview replaces the artifact list in-place and expands the right pane.
+// Mouse-resizable artifacts pane. Width is remembered for the next chat.
+const chatLayout=document.querySelector('.layout'), rightResizer=document.getElementById('right-resizer');
+function setAsideWidth(width){
+  const maximum=Math.min(700,chatLayout.getBoundingClientRect().width*.65);
+  const value=Math.max(240,Math.min(maximum,width));
+  chatLayout.style.setProperty('--aside-w',value+'px');
+  return value;
+}
+try{const saved=Number(localStorage.getItem('restore_aside_width'));if(saved)setAsideWidth(saved);}catch(error){}
+rightResizer.addEventListener('pointerdown',event=>{
+  if(matchMedia('(max-width:900px)').matches)return;
+  event.preventDefault();rightResizer.setPointerCapture(event.pointerId);rightResizer.classList.add('dragging');document.body.classList.add('resizing');
+});
+rightResizer.addEventListener('pointermove',event=>{
+  if(!rightResizer.hasPointerCapture(event.pointerId))return;
+  const bounds=chatLayout.getBoundingClientRect();setAsideWidth(bounds.right-event.clientX-8);
+});
+function finishAsideResize(event){
+  if(!rightResizer.hasPointerCapture(event.pointerId))return;
+  rightResizer.releasePointerCapture(event.pointerId);rightResizer.classList.remove('dragging');document.body.classList.remove('resizing');
+  try{localStorage.setItem('restore_aside_width',parseFloat(getComputedStyle(chatLayout).getPropertyValue('--aside-w'))||340);}catch(error){}
+}
+rightResizer.addEventListener('pointerup',finishAsideResize);rightResizer.addEventListener('pointercancel',finishAsideResize);
+// Preview is moved into the selected artifact card and grows only downward.
 const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), mdPreview=document.getElementById('md-preview');
-const previewAside=previewBox.closest('aside'), previewPanel=previewBox.closest('.panel'), previewLayout=previewBox.closest('.layout');
-let previewScrollTop=0;
+const previewHome=previewBox.parentElement;
 function closePreview(){
   previewIframe.removeAttribute('src');previewIframe.style.display='none';
   mdPreview.innerHTML='';mdPreview.style.display='none';previewBox.classList.remove('open');
-  previewPanel.classList.remove('previewing');previewAside.classList.remove('preview-open');previewLayout.classList.remove('preview-open');
-  previewAside.scrollTop=previewScrollTop;
+  previewHome.appendChild(previewBox);
 }
 document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{
   var title=button.dataset.title, isMd=button.dataset.md==='1';
-  if(!previewBox.classList.contains('open'))previewScrollTop=previewAside.scrollTop;
+  var card=button.closest('.artifact-card');
+  card.appendChild(previewBox);
   previewTitle.textContent=title;
   if(isMd){
     previewIframe.style.display='none';previewIframe.removeAttribute('src');
     mdPreview.style.display='block';
-    var card=button.closest('.artifact-card');
     var mdEl=card?card.querySelector('.md-data'):null;
     var mdText='';
     if(mdEl){try{mdText=JSON.parse(mdEl.textContent);}catch(error){console.error('Markdown preview JSON:',error);}}
@@ -665,8 +686,6 @@ document.querySelectorAll('.preview-button').forEach(button=>button.addEventList
     previewIframe.src=src;
   }
   previewBox.classList.add('open');
-  previewPanel.classList.add('previewing');previewAside.classList.add('preview-open');previewLayout.classList.add('preview-open');
-  previewAside.scrollTop=0;
 }));
 document.getElementById('preview-close').addEventListener('click',closePreview);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&previewBox.classList.contains('open'))closePreview();});
@@ -732,10 +751,29 @@ def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> s
         lang_options.append(f'<option value="{code}"{sel}>{html.escape(name)}</option>')
 
     return f"""<!doctype html><html lang="{L("html_lang", lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(ti("page_title"))}</title><style>
-:root{{--sidebar:#181817;--sidebar2:#242422;--ink:#eee;--muted:#a9a7a1;--accent:#d97757;--sidebar-w:290px}}*{{box-sizing:border-box}}html,body{{height:100%;margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}}body{{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);overflow:hidden;background:#f5f3ee}}.sidebar{{height:100vh;background:var(--sidebar);color:var(--ink);display:flex;flex-direction:column;border-right:1px solid #343431;overflow-x:auto;resize:horizontal;min-width:200px;max-width:50vw}}.brand{{padding:15px 16px 10px;font-size:20px;font-weight:700}}.tools{{padding:0 10px 10px;display:grid;gap:7px}}.tools input,.tools select{{width:100%;border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:8px 9px}}.links{{display:flex;gap:9px;padding:0 14px 10px;flex-wrap:wrap;align-items:center}}.links a{{color:#c9c6bf;font-size:12px}}.lang-switch{{border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:4px 6px;font:inherit;font-size:12px}}.conversation-list{{overflow:auto;padding:4px 7px 16px}}.conversation{{display:block;color:var(--ink);text-decoration:none;padding:9px 10px;border-radius:8px;margin:2px 0}}.conversation:hover,.conversation.active{{background:#3a3a37}}.conversation.active{{box-shadow:inset 3px 0 var(--accent)}}.conversation strong{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:560}}.conversation span{{display:block;color:var(--muted);font-size:11px;margin-top:3px}}.empty{{color:var(--muted);padding:15px;display:none}}iframe{{width:100%;height:100vh;border:0;background:#f5f3ee}}@media(max-width:720px){{body{{grid-template-columns:1fr;overflow:auto}}.sidebar{{height:46vh;resize:none}}.viewer{{height:54vh}}.viewer iframe{{height:54vh}}}}
-</style></head><body><nav class="sidebar"><div class="brand">{html.escape(ti("brand"))}</div><div class="tools"><input id="search" type="search" placeholder="{html.escape(ti("search_placeholder"))}"><select id="sort"><option value="newest">{html.escape(ti("sort_newest"))}</option><option value="oldest">{html.escape(ti("sort_oldest"))}</option><option value="title">{html.escape(ti("sort_title"))}</option></select></div><div class="links"><a href="RESTORATION_NOTES.md" target="_blank">{html.escape(ti("link_description"))}</a><a href="raw/artifacts/INDEX.html" target="_blank">{html.escape(ti("link_artifacts"))}</a><a href="project_documents/" target="_blank">{html.escape(ti("link_projects"))}</a><a href="SUMMARY.json" target="_blank">{html.escape(ti("link_summary"))}</a><select class="lang-switch" id="lang-switch">{"".join(lang_options)}</select></div><div class="conversation-list" id="conversation-list">""" + "".join(cards) + f"""<div class="empty" id="empty">{html.escape(ti("empty"))}</div></div></nav><main class="viewer"><iframe name="chat-frame" id="chat-frame" src="__FIRST_CHAT__" title="{html.escape(ti("iframe_title"))}"></iframe></main><script>
+:root{{--sidebar:#181817;--sidebar2:#242422;--ink:#eee;--muted:#a9a7a1;--accent:#d97757;--sidebar-w:290px}}*{{box-sizing:border-box}}html,body{{height:100%;margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}}body{{display:grid;grid-template-columns:var(--sidebar-w) 8px minmax(0,1fr);overflow:hidden;background:#f5f3ee}}body.resizing{{cursor:col-resize;user-select:none}}.sidebar{{height:100vh;background:var(--sidebar);color:var(--ink);display:flex;flex-direction:column;border-right:1px solid #343431;overflow-x:auto;min-width:0}}.left-resizer{{position:relative;height:100vh;cursor:col-resize;touch-action:none;background:#292927}}.left-resizer::after{{content:"";position:absolute;left:3px;top:12px;bottom:12px;width:2px;border-radius:2px;background:#66645f;opacity:.55}}.left-resizer:hover::after,.left-resizer.dragging::after{{background:var(--accent);opacity:1}}.brand{{padding:15px 16px 10px;font-size:20px;font-weight:700}}.tools{{padding:0 10px 10px;display:grid;gap:7px}}.tools input,.tools select{{width:100%;border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:8px 9px}}.links{{display:flex;gap:9px;padding:0 14px 10px;flex-wrap:wrap;align-items:center}}.links a{{color:#c9c6bf;font-size:12px}}.lang-switch{{border:1px solid #454541;border-radius:8px;background:var(--sidebar2);color:var(--ink);padding:4px 6px;font:inherit;font-size:12px}}.conversation-list{{overflow:auto;padding:4px 7px 16px}}.conversation{{display:block;color:var(--ink);text-decoration:none;padding:9px 10px;border-radius:8px;margin:2px 0}}.conversation:hover,.conversation.active{{background:#3a3a37}}.conversation.active{{box-shadow:inset 3px 0 var(--accent)}}.conversation strong{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:560}}.conversation span{{display:block;color:var(--muted);font-size:11px;margin-top:3px}}.empty{{color:var(--muted);padding:15px;display:none}}iframe{{width:100%;height:100vh;border:0;background:#f5f3ee}}@media(max-width:720px){{body{{grid-template-columns:1fr;overflow:auto}}.sidebar{{height:46vh}}.left-resizer{{display:none}}.viewer{{height:54vh}}.viewer iframe{{height:54vh}}}}
+</style></head><body><nav class="sidebar"><div class="brand">{html.escape(ti("brand"))}</div><div class="tools"><input id="search" type="search" placeholder="{html.escape(ti("search_placeholder"))}"><select id="sort"><option value="newest">{html.escape(ti("sort_newest"))}</option><option value="oldest">{html.escape(ti("sort_oldest"))}</option><option value="title">{html.escape(ti("sort_title"))}</option></select></div><div class="links"><a href="RESTORATION_NOTES.md" target="_blank">{html.escape(ti("link_description"))}</a><a href="raw/artifacts/INDEX.html" target="_blank">{html.escape(ti("link_artifacts"))}</a><a href="project_documents/" target="_blank">{html.escape(ti("link_projects"))}</a><a href="SUMMARY.json" target="_blank">{html.escape(ti("link_summary"))}</a><select class="lang-switch" id="lang-switch">{"".join(lang_options)}</select></div><div class="conversation-list" id="conversation-list">""" + "".join(cards) + f"""<div class="empty" id="empty">{html.escape(ti("empty"))}</div></div></nav><div class="left-resizer" id="left-resizer" role="separator" aria-orientation="vertical"></div><main class="viewer"><iframe name="chat-frame" id="chat-frame" src="__FIRST_CHAT__" title="{html.escape(ti("iframe_title"))}"></iframe></main><script>
 const list=document.getElementById('conversation-list'), search=document.getElementById('search'), sort=document.getElementById('sort');
 const conversations=[...list.querySelectorAll('.conversation')];
+const leftResizer=document.getElementById('left-resizer');
+function setSidebarWidth(width){{
+  const maximum=Math.min(650,window.innerWidth*.55);
+  const value=Math.max(200,Math.min(maximum,width));
+  document.body.style.setProperty('--sidebar-w',value+'px');
+  return value;
+}}
+try{{const saved=Number(localStorage.getItem('restore_sidebar_width'));if(saved)setSidebarWidth(saved);}}catch(error){{}}
+leftResizer.addEventListener('pointerdown',event=>{{
+  if(matchMedia('(max-width:720px)').matches)return;
+  event.preventDefault();leftResizer.setPointerCapture(event.pointerId);leftResizer.classList.add('dragging');document.body.classList.add('resizing');
+}});
+leftResizer.addEventListener('pointermove',event=>{{if(leftResizer.hasPointerCapture(event.pointerId))setSidebarWidth(event.clientX-4);}});
+function finishSidebarResize(event){{
+  if(!leftResizer.hasPointerCapture(event.pointerId))return;
+  leftResizer.releasePointerCapture(event.pointerId);leftResizer.classList.remove('dragging');document.body.classList.remove('resizing');
+  try{{localStorage.setItem('restore_sidebar_width',parseFloat(getComputedStyle(document.body).getPropertyValue('--sidebar-w'))||290);}}catch(error){{}}
+}}
+leftResizer.addEventListener('pointerup',finishSidebarResize);leftResizer.addEventListener('pointercancel',finishSidebarResize);
 function update(){{const q=search.value.trim().toLocaleLowerCase('{sort_locale}'); conversations.forEach(x=>x.hidden=q&&!x.dataset.title.includes(q)); const visible=conversations.filter(x=>!x.hidden); visible.sort((a,b)=>sort.value==='title'?a.dataset.title.localeCompare(b.dataset.title,'{sort_locale}'):(sort.value==='oldest'?a.dataset.date.localeCompare(b.dataset.date):b.dataset.date.localeCompare(a.dataset.date))).forEach(x=>list.appendChild(x)); document.getElementById('empty').style.display=visible.length?'none':'block';}}
 search.addEventListener('input',update);sort.addEventListener('change',update);update();
 conversations.forEach(link=>link.addEventListener('click',()=>{{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');}}));
