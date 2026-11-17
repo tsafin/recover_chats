@@ -13,6 +13,7 @@
 - `regenerate_node_office.py` — 尝试运行已还原的 Node.js PPTX/DOCX/XLSX 生成器；
 - `regenerate_recipe_docx.py` — 复现保存在 tool calls 中的多步骤 DOCX 制作流程（TeX、绘图、Pandoc 与 `python-docx`）；
 - `regenerate_known_office.py` — 复现已明确核验过的制作流程，以及针对本导出中已知 DOCX/XLSX 的精确重命名操作；
+- `artifact_timestamps.py` — 根据文件展示记录和 tool calls 恢复重新生成产物的 `mtime`；
 - `check_restoration.py` — 校验本地链接和所得 Office 文件的完整性。
 
 辅助文件：
@@ -405,6 +406,28 @@ python recover_chats\restore_export.py --source . --output restored_export_new
 主还原程序不会删除 `regenerated/`，因此成功生成的 Office 文件会被保留。
 
 如果完全跳过了重新生成，则第二次运行不是必需的。
+
+### 8.4. 恢复文件时间
+
+每个重新生成脚本在成功创建产物后都会调用 `artifact_timestamps.py`，并从对话日志恢复结果文件的修改时间（`mtime`）：
+
+1. 优先选择文件名完全匹配的最后一次 `present_files`/`SendUserFile` 事件；
+2. 如果中间文件从未展示给用户，则使用最后一条包含完整文件名的消息或 tool call；
+3. 时间、来源和消息 UUID 会写入相应重新生成报告的 `restored_mtime` 或 `restored_mtimes` 字段。
+
+选择最后一次事件是有意的：同一路径可能展示过多个版本，而重新生成的文件代表最终版本。访问时间（`atime`）保持不变。创建时间/birth time 无法跨平台可靠修改，因此 Linux 和 Windows 上保证恢复的是 `mtime`。
+
+已有输出无需重新运行生成器，也可以补写时间：
+
+```bash
+python3 artifact_timestamps.py restored_export_new/conversations
+```
+
+Windows：
+
+```cmd
+python recover_chats\artifact_timestamps.py restored_export_new\conversations
+```
 
 ## 9. 最终校验
 

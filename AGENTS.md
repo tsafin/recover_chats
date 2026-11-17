@@ -17,6 +17,7 @@ per-conversation HTML pages with regenerated PPTX/DOCX/XLSX files.
 | `regenerate_node_office.py` | Runs recovered Node.js generators (pptxgenjs, docx) |
 | `regenerate_recipe_docx.py` | Replays multi-step DOCX recipes (TeX → Pandoc → python-docx) |
 | `regenerate_known_office.py` | Replays explicitly audited DOCX/XLSX recipes for this export |
+| `artifact_timestamps.py` | Restores regenerated artifact mtimes from presentation/tool-call logs |
 | `check_restoration.py` | Validates local links and OOXML ZIP integrity |
 | `winenv.py` | Cross-platform helpers: winget tool discovery, `to_posix_path()`, `kill_orphaned_tex_processes()` |
 | `install_deps_windows.ps1` | Silent-installs all dependencies via winget + pip |

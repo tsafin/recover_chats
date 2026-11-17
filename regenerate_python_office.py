@@ -18,6 +18,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from artifact_timestamps import restore_artifact_mtime
 from winenv import ensure_tools_on_path, to_posix_path
 
 ensure_tools_on_path()
@@ -93,6 +94,14 @@ def main() -> int:
                 entry["log"] = str(exc)
         after = {path.name for path in regenerated.iterdir() if path.is_file()}
         entry["created"] = sorted(after - before)
+        timestamped: dict[str, object] = {}
+        if entry["status"] == "ok":
+            output_names = {Path(original).name for original in outputs} | (after - before)
+            for output_name in sorted(output_names):
+                output_path = regenerated / output_name
+                if match := restore_artifact_mtime(conv_dir, output_path):
+                    timestamped[output_name] = match
+        entry["restored_mtimes"] = timestamped
         report.append(entry)
 
     report_path = root.parent / "python_regeneration_report.json"
