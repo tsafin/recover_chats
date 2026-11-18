@@ -911,6 +911,17 @@ function renderMarkdownSimple(md){
   md=md.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>').replace(/~~(.+?)~~/g,'<del>$1</del>').replace(/\\*([^*\\n]+)\\*/g,'<em>$1</em>');
   md=md.replace(/`([^`\\n]+)`/g,'<code>$1</code>');
   md=md.replace(/\\[([^\\]]+)\\]\\(([^)\\s]+)\\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // Tables: header row | separator | data rows
+  md=md.replace(/(?:^\\|.+)\\n(?:\\|[\\s:-]+\\|[^\\n]*)\\n((?:\\|.+)\\n?)+/gm,table=>{
+    const rows=table.trim().split('\\n').filter(r=>r.trim());
+    if(rows.length<2)return table;
+    const parseRow=row=>row.replace(/^\\|/,'').replace(/\\|$/,'').split('|').map(c=>c.trim());
+    const header=parseRow(rows[0]);
+    const body=rows.slice(2).map(parseRow);
+    let out='<table><thead><tr>'+header.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+    for(const row of body)out+='<tr>'+row.map(c=>'<td>'+c+'</td>').join('')+'</tr>';
+    return out+'</tbody></table>';
+  });
   md=md.split(/\\n\\s*\\n/).map(block=>{
     const value=block.trim();
     if(!value)return '';
