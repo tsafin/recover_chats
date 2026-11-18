@@ -82,6 +82,7 @@ def restore_artifact_mtime(conv_dir: Path, output_path: Path) -> dict[str, str] 
 
 
 def backfill_tree(conversations: Path) -> dict[str, Any]:
+    conversations = conversations.resolve()
     restored: list[dict[str, str]] = []
     unmatched: list[str] = []
     for output in sorted(conversations.glob("*/regenerated/*")):
@@ -96,9 +97,14 @@ def backfill_tree(conversations: Path) -> dict[str, Any]:
     return {"restored": restored, "unmatched": unmatched}
 
 
+def restore_timestamps(conversations: Path) -> dict[str, Any]:
+    """Public pipeline stage for restoring all regenerated-file mtimes."""
+    return backfill_tree(conversations)
+
+
 def main() -> int:
     conversations = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export/conversations").resolve()
-    result = backfill_tree(conversations)
+    result = restore_timestamps(conversations)
     print(json.dumps({"restored": len(result["restored"]), "unmatched": result["unmatched"]}, ensure_ascii=False, indent=2))
     return 0
 

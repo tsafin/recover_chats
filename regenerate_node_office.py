@@ -23,9 +23,10 @@ DIRECT_WRITE_RE = re.compile(r"(writeFile\s*\(\s*\{\s*fileName\s*:\s*)(['\"])([^
 UNSAFE_RE = re.compile(r"(?:child_process|\bexecSync\b|\bspawn\b|\brmSync\b|\brmdirSync\b)")
 
 
-def main() -> int:
-    conversations = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export/conversations").resolve()
-    runtime = Path(sys.argv[2] if len(sys.argv) > 2 else "restored_export/runtime/node_modules").resolve()
+def regenerate_node(conversations: Path, runtime: Path) -> tuple[list[dict[str, object]], dict[str, object]]:
+    """Run recovered Node.js Office generators and return report plus summary."""
+    conversations = conversations.resolve()
+    runtime = runtime.resolve()
     report: list[dict[str, object]] = []
     seen: set[tuple[Path, str]] = set()
     candidates = sorted(
@@ -112,6 +113,13 @@ def main() -> int:
         "created_files": sum(len(item["created"]) for item in report),
         "report": str(report_path),
     }
+    return report, summary
+
+
+def main() -> int:
+    conversations = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export/conversations")
+    runtime = Path(sys.argv[2] if len(sys.argv) > 2 else "restored_export/runtime/node_modules")
+    _report, summary = regenerate_node(conversations, runtime)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if not summary["failed"] else 1
 

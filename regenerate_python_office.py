@@ -15,6 +15,7 @@ Recognises two families of generators:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -25,6 +26,7 @@ import tempfile
 from pathlib import Path
 
 from artifact_timestamps import restore_artifact_mtime
+from pipeline.artifact_graph import discover_python_artifacts
 from winenv import ensure_tools_on_path, to_posix_path
 
 ensure_tools_on_path()
@@ -43,8 +45,9 @@ MEDIA_WRITE_RE = re.compile(r"(?:savefig|imwrite|write_text|\.save\s*\(|open\s*\
 HTML_BUILDER_RE = re.compile(r"(?:write_text\s*\(\s*['\"]?[^\)]*\.html|Path\s*\(\s*['\"][^'\"]*\.html)", re.I)
 
 
-def main() -> int:
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export/conversations").resolve()
+def regenerate_python(root: Path, max_passes: int = 8) -> tuple[list[dict[str, object]], dict[str, object]]:
+    """Run safe recovered Python generators, retrying newly unblocked tasks."""
+    root = root.resolve()
     report: list[dict[str, object]] = []
     seen: set[tuple[Path, str]] = set()
     candidates = sorted(
@@ -129,6 +132,7 @@ def main() -> int:
         for path in root.glob(pattern)
         if path.is_file()
     )
+    pending_media: list[tuple[Path, str, list[str], dict[str, object]]] = []
     for source in media_candidates:
         text = source.read_text(encoding="utf-8", errors="replace")
         is_media = MEDIA_LIBRARY_RE.search(text) and MEDIA_WRITE_RE.search(text)
@@ -141,16 +145,18 @@ def main() -> int:
         if rel_source in office_sources:
             continue
         # Detect declared output filenames
+        artifact_spec = discover_python_artifacts(text)
         media_outputs = sorted({
             match for match in MEDIA_OUTPUT_RE.findall(text)
             if not match.startswith(("/", "http")) and "." in match
-        })
+        } | artifact_spec.outputs)
         entry: dict[str, object] = {
             "source": rel_source,
             "declared_outputs": media_outputs,
             "status": "pending",
             "created": [],
             "category": "media",
+            "declared_inputs": sorted(artifact_spec.inputs),
         }
         if UNSAFE_RE.search(text):
             entry["status"] = "skipped-unsafe"
@@ -163,12 +169,17 @@ def main() -> int:
             report.append(entry)
             continue
         seen.add(marker)
+        report.append(entry)
+        pending_media.append((source, text, media_outputs, entry))
+
+    def attempt_media(task: tuple[Path, str, list[str], dict[str, object]], attempt: int) -> set[str]:
+        source, text, media_outputs, entry = task
+        conv_dir = next(parent for parent in source.parents if parent.parent == root)
         regenerated = conv_dir / "regenerated"
         regenerated.mkdir(parents=True, exist_ok=True)
         before = {path.name for path in regenerated.iterdir() if path.is_file()}
         with tempfile.TemporaryDirectory(prefix="claude-media-") as temp_dir:
             runner = Path(temp_dir) / source.name
-            # Patch absolute Claude paths if any, same as office generators
             patched = text
             for original in OFFICE_RE.findall(text):
                 patched = patched.replace(original, to_posix_path(regenerated) + "/" + Path(original).name)
@@ -176,13 +187,17 @@ def main() -> int:
             try:
                 result = subprocess.run(
                     [sys.executable, str(runner)],
-                    cwd=str(regenerated),  # run from regenerated/ so relative outputs land here
+                    cwd=str(regenerated),
                     text=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     timeout=120,
                     check=False,
-                    env={**os.environ, "PYTHONPATH": str(source.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")},
+                    env={
+                        **os.environ,
+                        "MPLCONFIGDIR": temp_dir,
+                        "PYTHONPATH": str(source.parent) + os.pathsep + os.environ.get("PYTHONPATH", ""),
+                    },
                 )
                 entry["exit_code"] = result.returncode
                 entry["log"] = result.stdout[-8000:]
@@ -191,16 +206,75 @@ def main() -> int:
                 entry["status"] = "timeout"
                 entry["log"] = str(exc)
         after = {path.name for path in regenerated.iterdir() if path.is_file()}
-        entry["created"] = sorted(after - before)
-        timestamped: dict[str, object] = {}
+        created = after - before
+        entry["created"] = sorted(set(entry.get("created") or []) | created)
+        entry["attempts"] = attempt
+        timestamped: dict[str, object] = dict(entry.get("restored_mtimes") or {})
         if entry["status"] == "ok":
-            output_names = set(media_outputs) | (after - before)
-            for output_name in sorted(output_names):
+            for output_name in sorted(set(media_outputs) | created):
                 output_path = regenerated / output_name
                 if match := restore_artifact_mtime(conv_dir, output_path):
                     timestamped[output_name] = match
         entry["restored_mtimes"] = timestamped
-        report.append(entry)
+        return created
+
+    # Run once in discovery order, then retry only tasks whose missing inputs
+    # were produced by another task. This is a bounded fixed-point scheduler:
+    # it handles generator chains without hard-coding filenames or ordering.
+    retry = pending_media
+    for attempt in range(1, max(1, max_passes) + 1):
+        if not retry:
+            break
+        next_retry: list[tuple[Path, str, list[str], dict[str, object]]] = []
+        deferred: list[tuple[Path, str, list[str], dict[str, object]]] = []
+        producers: dict[Path, set[str]] = {}
+        for source, _text, outputs, _entry in retry:
+            conv_dir = next(parent for parent in source.parents if parent.parent == root)
+            producers.setdefault(conv_dir, set()).update(Path(value).name for value in outputs)
+        for task in retry:
+            source, _text, _outputs, entry = task
+            conv_dir = next(parent for parent in source.parents if parent.parent == root)
+            regenerated = conv_dir / "regenerated"
+            missing_declared = [
+                value for value in entry.get("declared_inputs") or []
+                if not (regenerated / Path(str(value)).name).is_file()
+            ]
+            if any(Path(str(value)).name in producers.get(conv_dir, set()) for value in missing_declared):
+                entry["status"] = "blocked"
+                entry["blocked_by"] = sorted(set(str(value) for value in missing_declared))
+                deferred.append(task)
+                continue
+            attempt_media(task, attempt)
+        for task in deferred:
+            source, _text, _outputs, entry = task
+            conv_dir = next(parent for parent in source.parents if parent.parent == root)
+            regenerated = conv_dir / "regenerated"
+            unresolved = [
+                value for value in entry.get("declared_inputs") or []
+                if not (regenerated / Path(str(value)).name).is_file()
+            ]
+            if unresolved:
+                entry["blocked_by"] = sorted(set(str(value) for value in unresolved))
+            else:
+                next_retry.append(task)
+        for task in retry:
+            source, _text, _outputs, entry = task
+            if entry["status"] != "failed":
+                continue
+            missing = re.findall(r"FileNotFoundError:.*?['\"]([^'\"]+)['\"]", str(entry.get("log") or ""))
+            if not missing:
+                continue
+            conv_dir = next(parent for parent in source.parents if parent.parent == root)
+            regenerated = conv_dir / "regenerated"
+            unresolved = [name for name in missing if not (regenerated / Path(name).name).is_file()]
+            entry["missing_inputs"] = sorted(set(missing))
+            if not unresolved:
+                next_retry.append(task)
+            else:
+                entry["blocked_by"] = sorted(set(unresolved))
+        if not next_retry:
+            break
+        retry = next_retry
 
     report_path = root.parent / "python_regeneration_report.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -208,12 +282,22 @@ def main() -> int:
         "candidates": len(report),
         "ok": sum(item["status"] == "ok" for item in report),
         "failed": sum(item["status"] == "failed" for item in report),
+        "blocked": sum(item["status"] == "blocked" for item in report),
         "skipped": sum(str(item["status"]).startswith("skipped") for item in report),
         "created_files": sum(len(item["created"]) for item in report),
         "report": str(report_path),
     }
+    return report, summary
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("conversations", nargs="?", type=Path, default=Path("restored_export/conversations"))
+    parser.add_argument("--max-passes", type=int, default=8)
+    args = parser.parse_args()
+    _report, summary = regenerate_python(args.conversations, args.max_passes)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    return 0 if not summary["failed"] else 1
+    return 0 if not summary["failed"] and not summary["blocked"] else 1
 
 
 if __name__ == "__main__":

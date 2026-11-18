@@ -13,6 +13,7 @@ media assets (PNG/GIF/SVG/HTML), and a multi-language UI.
 
 | Script | Purpose |
 |---|---|
+| `restore_pipeline.py` | Preferred entry point: restore → dependency-aware regeneration → timestamps → HTML → validation |
 | `restore_export.py` | Main restorer: unpacks ZIP, builds per-conversation HTML (all languages), INDEX |
 | `regenerate_python_office.py` | Runs recovered Python generators: Office (openpyxl, python-docx, python-pptx) + media (matplotlib, PIL, cv2, HTML builders) |
 | `regenerate_node_office.py` | Runs recovered Node.js generators (pptxgenjs, docx) |
@@ -22,7 +23,15 @@ media assets (PNG/GIF/SVG/HTML), and a multi-language UI.
 | `check_restoration.py` | Validates local links and OOXML ZIP integrity |
 | `winenv.py` | Cross-platform helpers: winget tool discovery, `to_posix_path()`, `kill_orphaned_tex_processes()` |
 | `install_deps_windows.ps1` | Silent-installs all dependencies via winget + pip |
-| `restore_all.bat` | One-command Windows pipeline |
+| `restore_all.bat` | Windows wrapper around `restore_pipeline.py` |
+
+Shared importable pipeline code lives in `pipeline/`. Standalone scripts remain
+supported CLI wrappers around the same stage functions.
+
+Pipeline state is an atomic execution record, not a content-addressed cache.
+Use `--from-stage` for an explicit restart. Do not infer freshness by comparing
+artifact mtimes: regenerated artifacts intentionally receive historical mtimes
+from the logs. Hashing is optional future work, not required for correctness.
 
 ## i18n
 
@@ -48,5 +57,5 @@ media assets (PNG/GIF/SVG/HTML), and a multi-language UI.
 2. **Never substitute backslash paths into recovered source code.** Use `winenv.to_posix_path()`.
 3. **Never use `python3` in subprocess calls.** Use `sys.executable`.
 4. **Regeneration runs untrusted recovered code.** Read section 4 of the instructions.
-5. **After regeneration, re-run `restore_export.py`** to link files into HTML.
-6. **Always run `check_restoration.py` at the end.** `broken_links` and `corrupt_office_files` must be `0`.
+5. Prefer `restore_pipeline.py`; it automatically re-renders HTML after regeneration.
+6. The pipeline must finish with `broken_links` and `corrupt_office_files` equal to `0`.

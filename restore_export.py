@@ -1352,13 +1352,10 @@ def copy_export_sections(raw_dir: Path, output: Path) -> None:
         (artifacts_dir / "INDEX.html").write_text(artifact_html, encoding="utf-8")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, default=Path.cwd(), help="directory containing export ZIP files")
-    parser.add_argument("--output", type=Path, default=Path("restored_export"), help="restoration destination")
-    args = parser.parse_args()
-    source = args.source.resolve()
-    output = args.output.resolve()
+def restore_export(source: Path, output: Path) -> dict[str, Any]:
+    """Restore one export and return its machine-readable summary."""
+    source = source.resolve()
+    output = output.resolve()
     raw_dir = output / "raw"
     conversations_dir = output / "conversations"
     output.mkdir(parents=True, exist_ok=True)
@@ -1370,8 +1367,7 @@ def main() -> int:
     if errors:
         print(f"warning: {len(errors)} archive(s) failed validation", file=sys.stderr)
     if not conversations_file.exists():
-        print(f"error: {conversations_file} not found", file=sys.stderr)
-        return 2
+        raise FileNotFoundError(conversations_file)
 
     conversations = json.loads(conversations_file.read_text(encoding="utf-8"))
     rows = [restore_conversation(conv, conversations_dir) for conv in conversations]
@@ -1393,6 +1389,19 @@ def main() -> int:
         "archive_errors": len(errors),
     }
     json_dump(output / "SUMMARY.json", summary)
+    return summary
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=Path.cwd(), help="directory containing export ZIP files")
+    parser.add_argument("--output", type=Path, default=Path("restored_export"), help="restoration destination")
+    args = parser.parse_args()
+    try:
+        summary = restore_export(args.source, args.output)
+    except FileNotFoundError as exc:
+        print(f"error: {exc} not found", file=sys.stderr)
+        return 2
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 

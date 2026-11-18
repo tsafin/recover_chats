@@ -24,8 +24,9 @@ class Links(HTMLParser):
                     self.hrefs.append((value, attributes.get("data-original-reference") == "true"))
 
 
-def main() -> int:
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export").resolve()
+def validate_restoration(root: Path) -> dict[str, object]:
+    """Validate links and OOXML containers, returning the full report."""
+    root = root.resolve()
     broken: list[dict[str, str]] = []
     links = 0
     html_files = list(root.glob("INDEX*.html")) + [root / "raw" / "artifacts" / "INDEX.html"]
@@ -72,8 +73,14 @@ def main() -> int:
         "corrupt_office_files": corrupt,
     }
     (root / "validation_report.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return result
+
+
+def main() -> int:
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else "restored_export")
+    result = validate_restoration(root)
     print(json.dumps({key: len(value) if isinstance(value, list) else value for key, value in result.items()}, ensure_ascii=False, indent=2))
-    return 1 if broken or corrupt else 0
+    return 1 if result["broken_links"] or result["corrupt_office_files"] else 0
 
 
 if __name__ == "__main__":

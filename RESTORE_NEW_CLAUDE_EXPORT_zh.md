@@ -8,6 +8,10 @@
 
 工作脚本：
 
+- `restore_pipeline.py` — 推荐的统一入口：恢复、依赖感知的多轮再生成、时间戳、HTML 渲染和最终校验；
+
+统一流程会在 `<output>/.pipeline/` 中原子化记录阶段结果。当前版本不依赖文件哈希，也不会根据缓存自动跳过阶段；中断后可使用 `--from-stage <阶段>` 明确指定重新开始的位置。由于流程会根据日志恢复产物的历史 `mtime`，不能直接用输入/输出时间进行可靠的新旧判断。将来若增加自动增量模式，应先记录恢复时间戳之前的文件大小和 `mtime`，仅在这些信息变化或严格 CI 模式下计算 SHA-256。
+
 - `restore_export.py` — 主还原程序，同时生成 HTML 界面；
 - `regenerate_python_office.py` — 安全地尝试运行已还原的 Python Office 文件生成器；
 - `regenerate_node_office.py` — 尝试运行已还原的 Node.js PPTX/DOCX/XLSX 生成器；
