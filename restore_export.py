@@ -539,6 +539,7 @@ def render_chat_html(
         bits.append('</article>')
         return "".join(bits)
 
+    copy_title = html.escape(t("button_copy_chat"), quote=True)
     parts = [f"""<!doctype html>
 <html lang="{L("html_lang", lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script>try{{document.documentElement.dataset.theme=localStorage.getItem('restore_theme')||'dark'}}catch(error){{document.documentElement.dataset.theme='dark'}}</script>
@@ -548,7 +549,7 @@ def render_chat_html(
 *{{box-sizing:border-box}}html{{background:var(--bg)}}body{{margin:0;background:var(--bg);color:var(--ink);font:14px/1.58 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;transition:background .18s ease,color .18s ease}}
 a{{color:var(--link)}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) 8px var(--aside-w,340px);gap:0;min-height:100vh}}
 main{{min-width:0;padding:0 clamp(18px,3vw,46px) 70px}}.hero,.message,.panel{{background:transparent;border:0;box-shadow:none}}
-.hero{{position:sticky;top:0;z-index:10;margin:0 calc(clamp(18px,3vw,46px)*-1) 24px;padding:12px clamp(18px,3vw,46px);border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px)}}.hero h1{{margin:0;font-size:14px;line-height:1.4;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.meta{{max-height:0;opacity:0;overflow:hidden;color:var(--muted);font-size:10px;transition:max-height .18s ease,opacity .18s ease}}
+.hero{{position:sticky;top:0;z-index:10;margin:0 calc(clamp(18px,3vw,46px)*-1) 24px;padding:8px clamp(18px,3vw,46px);border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px)}}.hero-row{{display:flex;align-items:center;gap:12px;min-height:34px}}.hero h1{{min-width:0;flex:1;margin:0;font-size:14px;line-height:1.4;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.hero-copy{{position:relative;flex:0 0 34px;box-shadow:none!important}}.hero-copy .check-icon{{display:none}}.hero-copy.copied{{color:#68a27b!important}}.hero-copy.copied .copy-icon{{display:none}}.hero-copy.copied .check-icon{{display:block}}.meta{{max-height:0;opacity:0;overflow:hidden;color:var(--muted);font-size:10px;transition:max-height .18s ease,opacity .18s ease}}
 .hero .chips{{margin:0;gap:5px;max-height:0;opacity:0;overflow:hidden;transition:max-height .18s ease,opacity .18s ease}}.hero:hover .meta,.hero:focus-within .meta{{max-height:34px;opacity:1;margin-top:5px}}.hero:hover .chips,.hero:focus-within .chips{{max-height:40px;opacity:1;margin-top:6px}}
 .message{{max-width:860px;margin:0 auto 26px;padding:0}}.message.user{{width:fit-content;max-width:min(72%,700px);margin:12px 0 36px auto;padding:12px 16px;border-radius:13px;background:var(--user)}}
 .message.assistant{{background:transparent}}.message.user .head{{margin:0}}.message.user .role{{display:none}}.message.user .time{{display:none}}
@@ -567,7 +568,8 @@ aside{{position:sticky;top:0;height:100vh;overflow:auto;min-width:0;border-left:
 @media(hover:none){{.artifact-hover-actions{{position:static;grid-column:2;grid-row:2;justify-self:end;opacity:1;transform:none;pointer-events:auto;margin-top:5px}}}}@media(max-width:900px){{.layout{{grid-template-columns:1fr}}main{{padding:0 14px 50px}}.hero{{margin:0 -14px 20px;padding:11px 14px}}.right-resizer{{display:none}}aside{{position:static;height:auto;order:-1;border:0;border-bottom:1px solid var(--line)}}.message.user{{max-width:88%}}.lang-switch{{right:10px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
-        '<section class="hero">', f"<h1>{html.escape(title)}</h1>",
+        '<section class="hero"><div class="hero-row">', f"<h1>{html.escape(title)}</h1>",
+        f'<button type="button" class="artifact-icon-button hero-copy" id="copy-chat" title="{copy_title}" aria-label="{copy_title}"><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg><svg class="check-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></div>',
         f'<div class="meta">{t("uuid_label")}: <code>{html.escape(str(conversation.get("uuid") or ""))}</code><br>{t("created_label")}: {html.escape(str(conversation.get("created_at") or ""))}</div>',
         f'<div class="chips"><a class="chip" href="README.md">{t("link_readme")}</a><a class="chip" href="chat.md">{t("link_markdown")}</a><a class="chip" href="conversation.json">{t("link_json")}</a><a class="chip" href="recovered_files.json">{t("link_files_json")}</a><a class="chip" href="presented_files.json">{t("link_artifacts_json")}</a><a class="chip" href="../../raw/artifacts/">{t("link_all_artifacts")}</a></div>',
         "</section>",
@@ -610,6 +612,54 @@ aside{{position:sticky;top:0;height:100vh;overflow:auto;min-width:0;border-left:
             "message_uuid": message_uuid,
             "previewable": suffix in {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".html", ".htm", ".txt", ".md", ".json", ".csv"},
         }
+
+    def copy_chat_markdown() -> str:
+        out = [f"# {title}"]
+        for message in conversation.get("chat_messages") or []:
+            message_parts: list[str] = []
+            inline_seen: set[str] = set()
+            blocks = message.get("content") or []
+            if not blocks and message.get("text"):
+                message_parts.append(str(message["text"]).strip())
+            for block in blocks:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "text":
+                    value = str(block.get("text") or "").strip()
+                    if value:
+                        message_parts.append(value)
+                    continue
+                for raw_path in presented_paths(block):
+                    identity = raw_path.casefold()
+                    if identity in inline_seen:
+                        continue
+                    inline_seen.add(identity)
+                    item = matching_artifact(raw_path, str(message.get("uuid") or ""))
+                    name = str(item["name"]).replace("[", "\\[").replace("]", "\\]")
+                    artifact_type = Path(str(item["name"])).suffix.lstrip(".").upper() or "FILE"
+                    details = f'{artifact_type} · {t("version_label")} {item["version"]}'
+                    if item.get("date"):
+                        details += f' · {str(item["date"]).replace("T", " ")[:16]}'
+                    if item.get("local"):
+                        message_parts.append(f'📎 **{t("copy_artifact_label")}:** [{name}]({href(str(item["local"]))}) · {details}')
+                    else:
+                        message_parts.append(f'📎 **{t("copy_artifact_label")}:** {name} · {details} · {t("metadata_only")}')
+            message_parts = [part for part in message_parts if part]
+            if not message_parts:
+                continue
+            role = t("role_user") if message.get("sender") == "human" else t("role_assistant")
+            out.extend(["", f"## {role}", "", "\n\n".join(message_parts)])
+        return "\n".join(out).rstrip() + "\n"
+
+    copy_payload = (
+        json.dumps(copy_chat_markdown(), ensure_ascii=False)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+    parts.append(f'<script type="application/json" id="copy-chat-data">{copy_payload}</script>')
 
     def tool_step(block: dict[str, Any]) -> str:
         nonlocal command_index
@@ -739,6 +789,30 @@ window.addEventListener('message',event=>{
 window.addEventListener('storage',event=>{if(event.key==='restore_theme')applyChatTheme(event.newValue);});
 const artifactList=document.getElementById('artifact-list');
 const artifactSort=document.getElementById('artifact-sort');
+const copyChatButton=document.getElementById('copy-chat');
+const copyChatLabels={
+  ready:__COPY_READY__,
+  copied:__COPY_COPIED__,
+  failed:__COPY_FAILED__
+};
+function absoluteMarkdownLinks(markdown){
+  return markdown.replace(/\]\(([^)]+)\)/g,(match,target)=>{
+    if(/^[a-z][a-z0-9+.-]*:/i.test(target)||target.startsWith('#'))return match;
+    try{return ']('+new URL(target,document.baseURI).href+')';}catch(error){return match;}
+  });
+}
+async function copyText(text){
+  if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return;}
+  const textarea=document.createElement('textarea');textarea.value=text;textarea.setAttribute('readonly','');textarea.style.cssText='position:fixed;opacity:0;pointer-events:none';document.body.appendChild(textarea);textarea.select();
+  const copied=document.execCommand('copy');textarea.remove();if(!copied)throw new Error('copy command failed');
+}
+copyChatButton.addEventListener('click',async()=>{
+  try{
+    const markdown=JSON.parse(document.getElementById('copy-chat-data').textContent);
+    await copyText(absoluteMarkdownLinks(markdown));copyChatButton.classList.add('copied');copyChatButton.title=copyChatLabels.copied;copyChatButton.setAttribute('aria-label',copyChatLabels.copied);
+    setTimeout(()=>{copyChatButton.classList.remove('copied');copyChatButton.title=copyChatLabels.ready;copyChatButton.setAttribute('aria-label',copyChatLabels.ready);},1600);
+  }catch(error){console.error('Copy chat:',error);copyChatButton.title=copyChatLabels.failed;copyChatButton.setAttribute('aria-label',copyChatLabels.failed);}
+});
 function sortArtifacts(){
   const mode=artifactSort.value;
   [...artifactList.children].sort((a,b)=>{
@@ -844,7 +918,7 @@ function renderMarkdownSimple(md){
   }).join('\\n');
   return md.replace(/@@CODEBLOCK(\\d+)@@/g,(match,index)=>codeBlocks[Number(index)]||'');
 }
-</script></body></html>""".replace("__SORT_LOCALE__", sort_locale)
+</script></body></html>""".replace("__SORT_LOCALE__", sort_locale).replace("__COPY_READY__", json.dumps(t("button_copy_chat"), ensure_ascii=False)).replace("__COPY_COPIED__", json.dumps(t("button_copy_chat_copied"), ensure_ascii=False)).replace("__COPY_FAILED__", json.dumps(t("button_copy_chat_failed"), ensure_ascii=False))
     parts.append(js_block)
     return "".join(parts)
 
@@ -958,10 +1032,32 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
     path_dates: dict[str, list[str]] = {}
     edit_failures: list[dict[str, Any]] = []
     presented: list[dict[str, Any]] = []
+    presented_by_event: dict[tuple[str, str], dict[str, Any]] = {}
     command_count = 0
     inline_count = 0
     attachment_count = 0
     attachment_records: list[dict[str, Any]] = []
+
+    def record_presented(item: dict[str, Any], tool_use_id: str = "") -> None:
+        """Record one presentation event, merging its tool call/result pair only."""
+        raw_path = str(item.get("file_path") or "")
+        if not raw_path:
+            return
+        message_uuid = str(item.get("message_uuid") or "")
+        event_id = tool_use_id or f"message:{message_uuid}:{item.get('tool') or ''}"
+        event_key = (event_id, raw_path)
+        existing = presented_by_event.get(event_key)
+        if existing is None:
+            item["tool_use_id"] = tool_use_id or None
+            presented.append(item)
+            presented_by_event[event_key] = item
+            return
+        # A tool_result carries richer resource metadata than its tool_use.
+        # Merge it into the same event without collapsing later presentations
+        # of the same path, which have a different tool-use ID/message UUID.
+        for key, value in item.items():
+            if value is not None and value != "":
+                existing[key] = value
 
     for msg_index, message in enumerate(conversation.get("chat_messages") or [], 1):
         message_date = str(message.get("created_at") or "")
@@ -989,7 +1085,7 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
             if block.get("type") == "tool_result":
                 for item in block.get("content") or []:
                     if isinstance(item, dict) and item.get("type") == "local_resource":
-                        presented.append({
+                        record_presented({
                             "message_uuid": message.get("uuid"),
                             "tool": block.get("name"),
                             "uuid": item.get("uuid"),
@@ -997,7 +1093,7 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
                             "name": item.get("name"),
                             "mime_type": item.get("mime_type"),
                             "bytes_in_export": False,
-                        })
+                        }, str(block.get("tool_use_id") or ""))
                 continue
             if block.get("type") != "tool_use":
                 continue
@@ -1057,8 +1153,10 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
                 if inp.get("file_path"):
                     presented_paths = [*presented_paths, inp["file_path"]]
                 for raw_path in presented_paths:
-                    if not any(item.get("file_path") == raw_path for item in presented):
-                        presented.append({"message_uuid": message.get("uuid"), "tool": name, "uuid": None, "file_path": raw_path, "name": Path(str(raw_path)).stem, "mime_type": None, "bytes_in_export": False})
+                    record_presented(
+                        {"message_uuid": message.get("uuid"), "tool": name, "uuid": None, "file_path": raw_path, "name": Path(str(raw_path)).stem, "mime_type": None, "bytes_in_export": False},
+                        str(block.get("id") or ""),
+                    )
 
     recovered_manifest: list[dict[str, Any]] = []
     for key, content in sorted(virtual_files.items()):
