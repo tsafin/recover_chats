@@ -117,6 +117,19 @@ python -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib
 - `pdftoppm` (Poppler) — преобразование PDF-рисунков в PNG;
 - `libreoffice`/`soffice` — дополнительная визуальная проверка DOCX.
 
+Рецепт справочника использует Markdown и `style.css` из `files/filesystem/`
+диалога и два PNG из `regenerated/`, которые создаёт стадия `python`.
+Стадия `known` собирает автономный HTML с Pandoc и печатает его в PDF
+через wkhtmltopdf. Для повторной сборки выполните `--from-stage python` на
+том же экспорте в изолированном окружении. Стадии `timestamps`, `render`
+и `validate` восстановят даты, добавят ссылки в чат и проверят результат.
+
+На Windows установите те же пакеты через MiKTeX.
+
+Если исходники и графики уже восстановлены, запустите
+`--only-stage known`, затем `--from-stage render` для обновления ссылок.
+Рецепты Pandoc, pdfLaTeX и wkhtmltopdf работают без `node_modules`.
+
 ### 3.3. Установка зависимостей на Windows
 
 #### Автоматическая установка (рекомендуется)
@@ -175,9 +188,11 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   pandoc \
   texlive-latex-extra \
   texlive-pictures \
+  texlive-science \
   texlive-fonts-recommended \
   texlive-extra-utils \
   poppler-utils \
+  wkhtmltopdf \
   libreoffice-core-nogui \
   libreoffice-writer-nogui \
   default-jre-headless

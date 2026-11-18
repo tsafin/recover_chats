@@ -110,14 +110,10 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
 
         def known_stage() -> StageResult:
             assert config.node_modules is not None
-            if not config.node_modules.is_dir():
-                return StageResult("known", status="skipped", warnings=[f"node_modules not found: {config.node_modules}"])
-            # These recipes are intentionally export-specific. A generic
-            # export skips them instead of treating absent conversations as a
-            # pipeline failure.
-            if not any(config.conversations.glob("*User-level-scheduler-for-morsel-driven-engine*")):
-                return StageResult("known", status="skipped", warnings=["known recipe signatures not present"])
             report, summary = regenerate_known(config.conversations, config.node_modules)
+            if not report:
+                return StageResult("known", status="skipped", summary=summary,
+                                   warnings=["no applicable known recipes"])
             failed = int(summary.get("failed") or 0)
             return StageResult("known", status="partial" if failed else "ok", exit_code=1 if failed else 0, fatal=config.strict_generators and bool(failed), summary=summary, created=_created(report), report=str(summary.get("report") or ""))
 

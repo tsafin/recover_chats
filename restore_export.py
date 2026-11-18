@@ -979,45 +979,61 @@ document.querySelectorAll('.attachment-copy').forEach(button=>button.addEventLis
 }));
 document.getElementById('preview-close').addEventListener('click',closePreview);
 document.addEventListener('keydown',event=>{{if(event.key==='Escape'&&previewBox.classList.contains('open'))closePreview();}});
-// Resizable preview: drag the bottom-right handle to resize height and width.
-// Height changes the preview-resizer; width also expands the aside panel so
-// the preview never overflows its container.
+// Inline previews grow to the right; the sidebar is anchored on the right
+// and grows to the left.
 const resizeHandle=document.getElementById('resize-handle');
 const previewResizer=document.getElementById('preview-resizer');
 const asideEl=document.querySelector('aside');
-let isResizing=false;
+resizeHandle.style.touchAction='none';
+let previewDrag=null;
 resizeHandle.addEventListener('pointerdown',event=>{{
+  if(event.button!==0||previewDrag)return;
   event.preventDefault();event.stopPropagation();
-  isResizing=true;
+  const inAside=asideEl.contains(previewBox);
+  const card=previewBox.closest('.inline-artifact');
+  previewDrag={
+    x:event.clientX,
+    y:event.clientY,
+    height:previewResizer.getBoundingClientRect().height,
+    width:(inAside?asideEl:card)?.getBoundingClientRect().width,
+    card,
+    inAside
+  };
   resizeHandle.setPointerCapture(event.pointerId);
   document.body.classList.add('resizing-preview');
 }});
 resizeHandle.addEventListener('pointermove',event=>{{
-  if(!isResizing||!resizeHandle.hasPointerCapture(event.pointerId))return;
+  if(!previewDrag||!resizeHandle.hasPointerCapture(event.pointerId))return;
   event.preventDefault();
   const rect=previewResizer.getBoundingClientRect();
   // Height: distance from top of resizer to pointer Y
-  let newH=event.clientY-rect.top;
+  let newH=previewDrag.height+event.clientY-previewDrag.y;
   newH=Math.max(120,Math.min(newH,window.innerHeight-rect.top-10));
   previewResizer.style.height=newH+'px';
-  // Width: always resize aside to match pointer X relative to aside left edge
-  if(asideEl){{
-    const asideRect=asideEl.getBoundingClientRect();
-    let newW=event.clientX-asideRect.left+4;
+  const dx=event.clientX-previewDrag.x;
+  if(dx&&previewDrag.card){
+    const message=previewDrag.card.closest('.message');
+    const main=message.closest('main');
+    const style=getComputedStyle(main);
+    const limit=main.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+    const width=Math.min(limit,Math.max(240,previewDrag.width+dx));
+    message.style.maxWidth=Math.max(860,width)+'px';
+    previewDrag.card.style.maxWidth=width+'px';
+  }else if(dx&&previewDrag.inAside&&rightResizer.offsetWidth){{
     const maxW=Math.min(900,window.innerWidth*0.85);
-    newW=Math.max(280,Math.min(newW,maxW));
-    const chatLayout=document.querySelector('.layout');
-    if(chatLayout)chatLayout.style.setProperty('--aside-w',newW+'px');
+    const width=Math.max(280,Math.min(previewDrag.width-dx,maxW));
+    chatLayout.style.setProperty('--aside-w',width+'px');
   }}
 }});
 function finishResize(event){{
-  if(!isResizing)return;
-  isResizing=false;
+  if(!previewDrag)return;
+  previewDrag=null;
   if(resizeHandle.hasPointerCapture(event.pointerId))resizeHandle.releasePointerCapture(event.pointerId);
   document.body.classList.remove('resizing-preview');
 }}
 resizeHandle.addEventListener('pointerup',finishResize);
 resizeHandle.addEventListener('pointercancel',finishResize);
+resizeHandle.addEventListener('lostpointercapture',finishResize);
 // Small dependency-free renderer for local previews. The Python generator
 // already guarantees that mdText is a string; all source HTML is escaped here.
 function renderMarkdownSimple(md){

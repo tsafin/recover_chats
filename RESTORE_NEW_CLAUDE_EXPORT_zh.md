@@ -56,6 +56,15 @@ new_export/
 
 ## 3. 环境要求
 
+再在 `known` 阶段用 Pandoc 将 Markdown、CSS 和图表打包成独立 HTML，
+最后用 wkhtmltopdf 输出 PDF，并用 Poppler 的 `pdfinfo` 校验。
+Ubuntu/WSL 可运行 `sudo apt-get install pandoc wkhtmltopdf poppler-utils`。
+Windows 请安装 wkhtmltopdf 并将其 `bin` 目录加入 `PATH`。
+`texlive-science`（algorithm2e）、`texlive-latex-extra` 和 `texlive-pictures`。
+源文件及图表已恢复时，可先运行 `--only-stage known`，再运行
+`--from-stage render` 更新链接。这些 HTML/PDF 配方无需 `node_modules`。
+在隔离环境中用 `--from-stage python` 重建同一份导出。后续阶段会还原时间戳、更新聊天链接并校验输出。
+
 ### 3.1. 最低要求（所有平台）
 
 - Python 3.10 或更高版本；
