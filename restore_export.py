@@ -98,6 +98,7 @@ def lang_switcher_html(current_lang: str, relative_root: str = "") -> str:
     return (
         f'<select class="lang-switch" onchange="'
         f"document.cookie='restore_lang='+this.value+';path=/;max-age=31536000';"
+        f"sessionStorage.setItem('restore_chat_scroll',window.scrollY);"
         f"var d=document.location.pathname.replace(/(_(en|zh|ru))\\.html/,'.html');"
         f"var base=d.replace(/\\.html$/,'');"
         f"document.location.href=base+('{{suffix}}'==='{{default}}'?'':'_'+this.value)+'.html'"
@@ -918,6 +919,11 @@ function renderMarkdownSimple(md){
   }).join('\\n');
   return md.replace(/@@CODEBLOCK(\\d+)@@/g,(match,index)=>codeBlocks[Number(index)]||'');
 }
+// Restore scroll position after language switch
+(function(){{
+  var s=sessionStorage.getItem('restore_chat_scroll');
+  if(s!==null){{window.scrollTo(0,Number(s));sessionStorage.removeItem('restore_chat_scroll');}}
+}})();
 </script></body></html>""".replace("__SORT_LOCALE__", sort_locale).replace("__COPY_READY__", json.dumps(t("button_copy_chat"), ensure_ascii=False)).replace("__COPY_COPIED__", json.dumps(t("button_copy_chat_copied"), ensure_ascii=False)).replace("__COPY_FAILED__", json.dumps(t("button_copy_chat_failed"), ensure_ascii=False))
     parts.append(js_block)
     return "".join(parts)
@@ -1003,14 +1009,40 @@ function update(){{const q=search.value.trim().toLocaleLowerCase('{sort_locale}'
 search.addEventListener('input',update);sort.addEventListener('change',update);update();
 conversations.forEach(link=>link.addEventListener('click',()=>{{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');}}));
 if(conversations.length) conversations[0].classList.add('active');
-// Language switcher: set cookie and redirect to the localized index
+// Language switcher: save state, set cookie, redirect to localized index
 document.getElementById('lang-switch').addEventListener('change',function(){{
   var lang=this.value;
   document.cookie='restore_lang='+lang+';path=/;max-age=31536000';
+  // Save selected conversation and scroll position
+  var active=document.querySelector('.conversation.active');
+  if(active) sessionStorage.setItem('restore_active_chat',active.getAttribute('href'));
+  sessionStorage.setItem('restore_sidebar_scroll',document.querySelector('.conversation-list').scrollTop);
   var suffix=lang==='{DEFAULT_LANG}'?'':'_'+lang;
   var base=document.location.pathname.replace(/(_(en|zh|ru))?\.html$/,'');
   document.location.href=base+suffix+'.html';
 }});
+// Restore selected conversation and scroll position after language switch
+(function(){{
+  var savedChat=sessionStorage.getItem('restore_active_chat');
+  var savedScroll=sessionStorage.getItem('restore_sidebar_scroll');
+  if(savedChat){{
+    var link=document.querySelector('.conversation[href="'+savedChat+'"]');
+    if(link){{
+      conversations.forEach(x=>x.classList.remove('active'));
+      link.classList.add('active');
+      // Update iframe src to the selected chat in the new language
+      var chatFrame=document.getElementById('chat-frame');
+      var baseChat=savedChat.replace(/(_(en|zh|ru))?\.html$/,'');
+      var lang=document.documentElement.lang||'{DEFAULT_LANG}';
+      var langCode=lang.startsWith('zh')?'zh':lang.startsWith('en')?'en':'ru';
+      var suffix=langCode==='{DEFAULT_LANG}'?'':'_'+langCode;
+      chatFrame.src=baseChat+suffix+'.html';
+      if(savedScroll) document.querySelector('.conversation-list').scrollTop=Number(savedScroll);
+      sessionStorage.removeItem('restore_active_chat');
+      sessionStorage.removeItem('restore_sidebar_scroll');
+    }}
+  }}
+}})();
 </script></body></html>""".replace("__FIRST_CHAT__", html.escape(first_url, quote=True))
 
 
