@@ -6,14 +6,15 @@
 ## What this repo does
 
 Restores Claude export archives (ZIP + manifest) into browsable
-per-conversation HTML pages with regenerated PPTX/DOCX/XLSX files.
+per-conversation HTML pages with regenerated PPTX/DOCX/XLSX files,
+media assets (PNG/GIF/SVG/HTML), and a multi-language UI.
 
 ## Scripts
 
 | Script | Purpose |
 |---|---|
-| `restore_export.py` | Main restorer: unpacks ZIP, builds per-conversation HTML, INDEX |
-| `regenerate_python_office.py` | Runs recovered Python generators (openpyxl, python-docx, python-pptx) |
+| `restore_export.py` | Main restorer: unpacks ZIP, builds per-conversation HTML (all languages), INDEX |
+| `regenerate_python_office.py` | Runs recovered Python generators: Office (openpyxl, python-docx, python-pptx) + media (matplotlib, PIL, cv2, HTML builders) |
 | `regenerate_node_office.py` | Runs recovered Node.js generators (pptxgenjs, docx) |
 | `regenerate_recipe_docx.py` | Replays multi-step DOCX recipes (TeX → Pandoc → python-docx) |
 | `regenerate_known_office.py` | Replays explicitly audited DOCX/XLSX recipes for this export |
@@ -28,8 +29,18 @@ per-conversation HTML pages with regenerated PPTX/DOCX/XLSX files.
 - Locale files: `locales/*.json` (ru, zh, en)
 - Default language: `ru` → `chat.html`, `INDEX.html`
 - Other languages: `chat_zh.html`, `INDEX_en.html`, etc.
-- Language switcher sets `restore_lang` cookie (1-year expiry)
+- Language switcher: sets `restore_lang` cookie, preserves selected chat via `?chat=<folder>` URL param
+- Chat scroll position preserved across language switches
 - To add a language: drop `locales/<code>.json`, re-run `restore_export.py`
+
+## UI features
+
+- Dark/light theme with localStorage persistence
+- Resizable sidebar and artifact panels
+- Inline `.md` preview with table/code/heading support
+- Tool-call blocks collapsed by default, compact styling
+- Empty Thinking blocks hidden
+- Copy chat as Markdown button
 
 ## Critical rules
 
