@@ -909,16 +909,14 @@ resizeHandle.addEventListener('pointermove',event=>{{
   let newH=event.clientY-rect.top;
   newH=Math.max(120,Math.min(newH,window.innerHeight-rect.top-10));
   previewResizer.style.height=newH+'px';
-  // Width: expand aside if pointer goes beyond current aside width
+  // Width: always resize aside to match pointer X relative to aside left edge
   if(asideEl){{
     const asideRect=asideEl.getBoundingClientRect();
-    if(event.clientX>asideRect.right-4){{
-      let newW=event.clientX-asideRect.left+4;
-      const maxW=Math.min(900,window.innerWidth*0.85);
-      newW=Math.max(280,Math.min(newW,maxW));
-      const chatLayout=document.querySelector('.layout');
-      if(chatLayout)chatLayout.style.setProperty('--aside-w',newW+'px');
-    }}
+    let newW=event.clientX-asideRect.left+4;
+    const maxW=Math.min(900,window.innerWidth*0.85);
+    newW=Math.max(280,Math.min(newW,maxW));
+    const chatLayout=document.querySelector('.layout');
+    if(chatLayout)chatLayout.style.setProperty('--aside-w',newW+'px');
   }}
 }});
 function finishResize(event){{
