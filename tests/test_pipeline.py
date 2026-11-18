@@ -8,6 +8,7 @@ from pipeline.model import PipelineConfig
 from pipeline.artifact_graph import discover_python_artifacts
 from pipeline.state import PipelineState
 from regenerate_python_office import regenerate_python
+from restore_export import render_chat_html
 
 
 class DependencySchedulerTest(unittest.TestCase):
@@ -62,6 +63,43 @@ class PipelineStateTest(unittest.TestCase):
             self.assertEqual(restored.stages["restore"]["status"], "ok")
             self.assertTrue(config.source.is_absolute())
             self.assertTrue(config.output.is_absolute())
+
+
+class ChatAttachmentRenderingTest(unittest.TestCase):
+    def test_recovered_attachment_covers_one_uuid_only_document_block(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            conversation = {
+                "name": "Attachment duplicate",
+                "uuid": "conversation-id",
+                "created_at": "2026-01-01T00:00:00Z",
+                "chat_messages": [{
+                    "uuid": "message-id",
+                    "sender": "human",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "content": [
+                        {"type": "document", "file_uuid": "covered-document"},
+                        {"type": "document", "file_uuid": "actually-missing-document"},
+                    ],
+                }],
+            }
+            attachments = [{
+                "message_uuid": "message-id",
+                "name": "",
+                "file_type": "txt",
+                "local_path": "attachments/input.extracted.txt",
+                "bytes": 7,
+                "lines": 1,
+                "content": "payload",
+            }]
+
+            rendered = render_chat_html(
+                conversation, [], [], attachments, Path(temporary), "en"
+            )
+
+            self.assertIn('class="input-attachment preview-button"', rendered)
+            self.assertNotIn("covered-document", rendered)
+            self.assertIn("actually-missing-document", rendered)
+            self.assertEqual(rendered.count("binary data missing from export"), 1)
 
 
 if __name__ == "__main__":

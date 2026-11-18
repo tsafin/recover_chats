@@ -507,6 +507,52 @@ def render_chat_html(
         )
         return f'<script type="application/json" class="md-data" data-src="{href(local)}">{md_json}</script>'
 
+    def json_text_payload(value: str, css_class: str) -> str:
+        payload = (
+            json.dumps(value, ensure_ascii=False)
+            .replace("&", "\\u0026")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029")
+        )
+        return f'<script type="application/json" class="{css_class}">{payload}</script>'
+
+    def visible_size(size: int) -> str:
+        if size < 1024:
+            return f"{size} B"
+        if size < 1024 * 1024:
+            return f"{size / 1024:.2f}".rstrip("0").rstrip(".") + " KB"
+        return f"{size / (1024 * 1024):.2f}".rstrip("0").rstrip(".") + " MB"
+
+    def attachment_card(item: dict[str, Any], date: str) -> str:
+        local = str(item["local_path"])
+        original_name = str(item.get("name") or "")
+        pasted = not original_name
+        title_text = t("pasted_content") if pasted else original_name
+        file_type = str(item.get("file_type") or Path(original_name).suffix.lstrip(".") or "txt").upper()
+        badge = t("pasted_badge") if pasted else file_type
+        content = str(item.get("content") or "")
+        snippet = content.strip().replace("\r\n", "\n").replace("\r", "\n")[:420]
+        line_count = int(item.get("lines") or len(content.splitlines()))
+        size = int(item.get("bytes") or 0)
+        meta = f'{visible_size(size)} · {line_count} {t("lines_label")}'
+        visible_date = date.replace("T", " ")[:16] if date else ""
+        return "".join([
+            '<div class="input-attachment-wrap">',
+            f'<button type="button" class="input-attachment preview-button" data-text="1" data-src="{href(local)}" data-title="{html.escape(title_text, quote=True)}" data-meta="{html.escape(meta, quote=True)}" aria-label="{html.escape(t("button_preview"), quote=True)}">',
+            f'<span class="input-attachment-snippet">{html.escape(snippet)}</span>',
+            f'<span class="input-attachment-badge">{html.escape(badge)}</span>',
+            '</button>',
+            '<div class="input-attachment-footer">',
+            f'<span>{html.escape(visible_date)}</span><span class="input-attachment-actions">',
+            f'<button type="button" class="attachment-copy" title="{html.escape(t("button_copy_attachment"), quote=True)}" aria-label="{html.escape(t("button_copy_attachment"), quote=True)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg></button>',
+            f'<a href="{href(local)}" download title="{html.escape(t("button_download_attachment"), quote=True)}" aria-label="{html.escape(t("button_download_attachment"), quote=True)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg></a>',
+            '</span></div>',
+            json_text_payload(content, "attachment-data"),
+            '</div>',
+        ])
+
     def artifact_card(item: dict[str, Any], *, inline: bool = False) -> str:
         name = str(item["name"])
         local = str(item["local"])
@@ -552,7 +598,7 @@ a{{color:var(--link)}}.layout{{display:grid;grid-template-columns:minmax(0,1fr) 
 main{{min-width:0;padding:0 clamp(18px,3vw,46px) 70px;overflow-y:auto;overflow-x:hidden}}.hero,.message,.panel{{background:transparent;border:0;box-shadow:none}}
 .hero{{position:sticky;top:0;z-index:10;margin:0 calc(clamp(18px,3vw,46px)*-1) 24px;padding:8px clamp(18px,3vw,46px);border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px)}}.hero-row{{display:flex;align-items:center;gap:12px;min-height:34px}}.hero h1{{min-width:0;flex:1;margin:0;font-size:14px;line-height:1.4;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.hero-copy{{position:relative;flex:0 0 34px;box-shadow:none!important}}.hero-copy .check-icon{{display:none}}.hero-copy.copied{{color:#68a27b!important}}.hero-copy.copied .copy-icon{{display:none}}.hero-copy.copied .check-icon{{display:block}}.meta{{max-height:0;opacity:0;overflow:hidden;color:var(--muted);font-size:10px;transition:max-height .18s ease,opacity .18s ease}}
 .hero .chips{{margin:0;gap:5px;max-height:0;opacity:0;overflow:hidden;transition:max-height .18s ease,opacity .18s ease}}.hero:hover .meta,.hero:focus-within .meta{{max-height:34px;opacity:1;margin-top:5px}}.hero:hover .chips,.hero:focus-within .chips{{max-height:40px;opacity:1;margin-top:6px}}
-.message{{max-width:860px;margin:0 auto 26px;padding:0}}.message.user{{width:fit-content;max-width:min(72%,700px);margin:12px 0 36px auto;padding:12px 16px;border-radius:13px;background:var(--user)}}
+.message{{max-width:860px;margin:0 auto 26px;padding:0}}.message.user{{width:fit-content;max-width:min(72%,700px);margin:12px 0 36px auto;padding:12px 16px;border-radius:13px;background:var(--user)}}.message.user.has-attachments{{width:min(72%,700px);padding:0;background:transparent}}.message.user.has-attachments .user-bubble{{width:fit-content;margin-left:auto;padding:12px 16px;border-radius:13px;background:var(--user)}}
 .message.assistant{{background:transparent}}.message.user .head{{margin:0}}.message.user .role{{display:none}}.message.user .time{{display:none}}
 .head{{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}}.role{{font-weight:750}}.time{{color:var(--muted);font-size:12px}}.text{{white-space:pre-wrap;overflow-wrap:anywhere}}.markdown{{overflow-wrap:anywhere}}.markdown>:first-child{{margin-top:0}}.markdown>:last-child{{margin-bottom:0}}.markdown h1,.markdown h2,.markdown h3{{line-height:1.25;margin:1.1em 0 .45em}}.markdown h1{{font-size:1.55em}}.markdown h2{{font-size:1.3em}}.markdown h3{{font-size:1.12em}}.markdown blockquote{{margin:10px 0;padding:3px 14px;border-left:4px solid #b9b4aa;color:#555;background:#f7f6f3}}.markdown table{{border-collapse:collapse;display:block;max-width:100%;overflow:auto}}.markdown th,.markdown td{{border:1px solid var(--line);padding:6px 10px}}.markdown th{{background:#f1efe9}}.markdown img{{max-width:100%}}.markdown ul,.markdown ol{{padding-left:25px}}.markdown pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:#e8eaed;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px 12px;border-radius:8px;margin:8px 0}}.markdown code{{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#f0eee8;padding:1px 4px;border-radius:3px}}.markdown pre code{{background:none;padding:0}}
 details{{border:1px solid var(--line);border-radius:10px;margin:7px 0;background:var(--surface)}}summary{{cursor:pointer;padding:7px 10px;font-weight:400;font-size:12px;color:var(--muted)}}details[open]>summary{{border-bottom:1px solid var(--line)}}details>div,details>pre{{margin:0;padding:10px;border-top:1px solid var(--line)}}
@@ -562,9 +608,11 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--code);color:va
 .markdown blockquote{{color:var(--muted);background:var(--surface-2);border-left-color:var(--line-strong)}}.markdown th{{background:var(--surface-2)}}.markdown pre{{color:var(--code-ink)}}.markdown code{{background:var(--surface-2)}}
 .chips{{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}}.chip,.file-link{{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 9px;background:var(--surface);color:var(--muted);text-decoration:none;font-size:11px}}.chip:hover,.file-link:hover{{color:var(--ink);border-color:var(--line-strong)}}
 .resource{{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:8px 0;background:var(--surface)}}.missing{{border-color:#8d713d;background:color-mix(in srgb,#9a7429 12%,var(--surface))}}.source-reference{{color:var(--muted);text-decoration-style:dotted}}
+.input-attachment-wrap{{width:132px;margin:2px 0 10px auto}}.input-attachment{{display:flex;width:132px;height:132px;flex-direction:column;justify-content:space-between;gap:7px;padding:11px;border:1px solid var(--line-strong);border-radius:11px;background:color-mix(in srgb,var(--surface) 72%,transparent);color:var(--ink);text-align:left;cursor:pointer;transition:border-color .13s ease,background .13s ease}}.input-attachment:hover,.input-attachment:focus-visible{{border-color:var(--muted);background:var(--surface)}}.input-attachment-snippet{{display:-webkit-box;min-height:0;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:5;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.32 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink)}}.input-attachment-badge{{align-self:flex-start;border-radius:999px;padding:2px 7px;background:var(--surface-2);color:var(--muted);font-size:10px;line-height:1.5}}.input-attachment-footer{{display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:5px 2px 0;color:var(--muted);font-size:11px;white-space:nowrap}}.input-attachment-actions{{display:flex;align-items:center;gap:2px}}.input-attachment-actions button,.input-attachment-actions a{{display:grid;width:24px;height:24px;place-items:center;border:0;border-radius:6px;padding:0;background:transparent;color:var(--muted);cursor:pointer}}.input-attachment-actions button:hover,.input-attachment-actions a:hover{{background:var(--surface-2);color:var(--ink)}}.input-attachment-actions svg{{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}}
 .right-resizer{{position:sticky;top:0;height:100vh;cursor:col-resize;touch-action:none}}.right-resizer::after{{content:"";position:absolute;left:3px;top:12px;bottom:12px;width:1px;border-radius:2px;background:var(--line);opacity:.8}}.right-resizer:hover::after,.right-resizer.dragging::after{{width:2px;background:var(--accent);opacity:1}}body.resizing{{cursor:col-resize;user-select:none}}body.resizing-preview{{cursor:nwse-resize;user-select:none}}
 aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);background:var(--bg)}}.panel{{padding:13px 14px 30px}}.panel h2{{font-size:13px;margin:16px 0 8px}}.panel h2:first-child{{margin-top:0}}.panel ul{{padding-left:20px;margin:5px 0}}.panel li{{margin:5px 0;overflow-wrap:anywhere}}.count{{color:var(--muted);font-size:11px}}
 .artifact-toolbar{{display:flex;gap:7px;align-items:center;margin:8px 0 11px}}.artifact-toolbar select{{min-width:0;flex:1;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:6px}}.artifact-list,.file-list{{display:grid;gap:9px}}.artifact-card,.file-card{{position:relative;border:1px solid var(--line);border-radius:12px;padding:11px;background:var(--surface);box-shadow:var(--shadow)}}.artifact-card{{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:center;min-height:62px}}.inline-artifact{{max-width:568px;margin:14px 0 22px;background:var(--surface)}}.artifact-card:hover,.artifact-card:focus-within,.file-card:hover{{border-color:var(--line-strong)}}.artifact-card-copy{{min-width:0}}.artifact-file-icon{{width:36px;height:36px;display:grid;place-items:center;border-radius:7px;background:var(--surface-2);color:var(--muted)}}.artifact-file-icon.presentation{{color:#e47d4f;background:color-mix(in srgb,#c76136 18%,var(--surface))}}.artifact-file-icon.sheet{{color:#68a27b;background:color-mix(in srgb,#43865a 18%,var(--surface))}}.artifact-file-icon svg,.artifact-icon-button svg{{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}}.artifact-name,.file-name{{font-weight:620;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}.artifact-meta,.file-meta{{color:var(--muted);font-size:11px;margin-top:3px}}.artifact-hover-actions{{position:absolute;z-index:3;right:9px;top:-17px;display:flex;gap:5px;opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .13s ease,transform .13s ease}}.artifact-card:hover .artifact-hover-actions,.artifact-card:focus-within .artifact-hover-actions{{opacity:1;transform:none;pointer-events:auto}}.artifact-icon-button{{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line)!important;border-radius:10px!important;padding:0!important;background:var(--surface-2)!important;color:var(--ink)!important;text-decoration:none;cursor:pointer;box-shadow:0 2px 8px #0003}}.artifact-icon-button:hover{{background:var(--surface-3)!important;border-color:var(--line-strong)!important}}.locate-artifact circle{{fill:currentColor;stroke:none}}.file-card a{{display:inline-block;margin-top:7px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;background:var(--surface-2);color:var(--ink);font-size:11px;text-decoration:none}}.artifact-missing{{grid-column:1/-1;color:#b8954f;font-size:11px}}.artifact-card.located{{animation:artifact-pulse 1.2s ease}}@keyframes artifact-pulse{{0%,100%{{box-shadow:var(--shadow)}}35%{{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent)}}}}.preview-box{{display:none;grid-column:1/-1;margin-top:2px;padding-top:10px;border-top:1px solid var(--line)}}.preview-box.open{{display:block}}.preview-head{{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}}.preview-title{{overflow-wrap:anywhere}}.preview-resizer{{position:relative;height:55vh;min-height:120px;max-height:90vh;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--surface)}}.preview-box iframe{{width:100%;height:100%;border:0;background:white}}.preview-box .md-preview{{height:100%;overflow:auto;padding:14px 16px;background:var(--surface)}}.resize-handle{{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:10;background:linear-gradient(135deg,transparent 50%,var(--line-strong) 50%);border-radius:0 0 8px 0;opacity:.6}}.resize-handle:hover{{opacity:1;background:linear-gradient(135deg,transparent 50%,var(--accent) 50%)}}.preview-close{{border:0;background:transparent;color:var(--muted);font-size:22px;cursor:pointer}}
+.preview-box.standalone{{margin:0;padding:0;border:0}}.preview-meta{{display:none;color:var(--muted);font-size:11px;margin:0 0 10px}}.preview-meta:not(:empty){{display:block}}.preview-box.standalone .preview-resizer{{height:calc(100vh - 78px);max-height:none}}.preview-box .md-preview.plain{{padding:0}}.plain-text-preview{{min-height:100%;margin:0;padding:18px!important;border-radius:0;background:var(--surface);color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.52 ui-monospace,SFMono-Regular,Consolas,monospace}}.panel.attachment-preview-open{{height:100vh;padding-bottom:10px;overflow:hidden}}.panel.attachment-preview-open>:not(.preview-box){{display:none}}
 .lang-switch{{position:absolute;top:10px;right:18px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:4px 6px;font:inherit;font-size:11px}}
 @media(hover:none){{.artifact-hover-actions{{position:static;grid-column:2;grid-row:2;justify-self:end;opacity:1;transform:none;pointer-events:auto;margin-top:5px}}}}@media(max-width:900px){{.layout{{grid-template-columns:1fr;height:auto;overflow:auto}}main{{padding:0 14px 50px;overflow:visible}}.hero{{margin:0 -14px 20px;padding:11px 14px}}.right-resizer{{display:none}}aside{{height:auto;order:-1;border:0;border-bottom:1px solid var(--line)}}.message.user{{max-width:88%}}.lang-switch{{right:10px}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
@@ -619,6 +667,12 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
         for message in conversation.get("chat_messages") or []:
             message_parts: list[str] = []
             inline_seen: set[str] = set()
+            for attachment in attachments_by_message.get(str(message.get("uuid")), []):
+                attachment_name = str(attachment.get("name") or t("pasted_content"))
+                message_parts.append(
+                    f'📎 **{t("attachment_label")}:** '
+                    f'[{attachment_name}]({href(str(attachment["local_path"]))})'
+                )
             blocks = message.get("content") or []
             if not blocks and message.get("text"):
                 message_parts.append(str(message["text"]).strip())
@@ -715,10 +769,22 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
         sender = message.get("sender")
         role = t("role_user") if sender == "human" else t("role_assistant")
         css_role = "user" if sender == "human" else "assistant"
-        parts.append(f'<article class="message {css_role}" id="message-{msg_index}"><div class="head"><span class="role">{role}</span><span class="time">{html.escape(str(message.get("created_at") or ""))}</span></div>')
-        for attachment in attachments_by_message.get(str(message.get("uuid")), []):
-            parts.append(f'<div class="resource">📎 <a href="{href(str(attachment["local_path"]))}">{html.escape(str(attachment["name"]))}</a> <span class="count">{attachment.get("bytes", 0)} bytes</span></div>')
+        message_attachments = attachments_by_message.get(str(message.get("uuid")), [])
+        attachment_class = " has-attachments" if sender == "human" and message_attachments else ""
+        has_user_text = bool(str(message.get("text") or "").strip()) or any(
+            isinstance(block, dict) and block.get("type") == "text" and str(block.get("text") or "").strip()
+            for block in message.get("content") or []
+        )
+        wrap_user_bubble = bool(attachment_class and has_user_text)
+        parts.append(f'<article class="message {css_role}{attachment_class}" id="message-{msg_index}"><div class="head"><span class="role">{role}</span><span class="time">{html.escape(str(message.get("created_at") or ""))}</span></div>')
+        if wrap_user_bubble:
+            parts.append('<div class="user-bubble">')
         blocks = message.get("content") or []
+        # Claude exports the same user upload twice: once in top-level
+        # `attachments` (where extracted text is available) and once as a
+        # UUID-only `document`/`image` content block.  A recovered attachment
+        # therefore satisfies one such placeholder in the same message.
+        covered_binary_placeholders = len(message_attachments)
         if not blocks and message.get("text"):
             parts.append(f'<div class="markdown">{render_markdown(message["text"], resource_links, lang)}</div>')
         block_index = 0
@@ -754,7 +820,14 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
                     summary = html.escape(t("tool_log_summary").format(count=len(steps)))
                     parts.append(f'<details class="tool-log"><summary>{summary}</summary><div class="tool-log-body">{"".join(steps)}</div></details>')
             elif kind in {"image", "document"}:
-                parts.append(f'<div class="resource missing">{html.escape(kind.title())}: UUID <code>{html.escape(str(block.get("file_uuid") or ""))}</code> — {t("binary_missing")}</div>')
+                if covered_binary_placeholders:
+                    covered_binary_placeholders -= 1
+                else:
+                    parts.append(f'<div class="resource missing">{html.escape(kind.title())}: UUID <code>{html.escape(str(block.get("file_uuid") or ""))}</code> — {t("binary_missing")}</div>')
+        if wrap_user_bubble:
+            parts.append('</div>')
+        for attachment in message_attachments:
+            parts.append(attachment_card(attachment, str(message.get("created_at") or "")))
         parts.append("</article>")
     parts.append(f'</main><div class="right-resizer" id="right-resizer" role="separator" aria-orientation="vertical" aria-label="{html.escape(t("artifacts_title"), quote=True)}"></div><aside><section class="panel">')
     parts.append(f'<h2>{t("artifacts_title")} <span class="count">{len(artifact_rows)}</span></h2>')
@@ -762,7 +835,7 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
     parts.append('<div class="artifact-list" id="artifact-list">')
     for item in artifact_rows:
         parts.append(artifact_card(item))
-    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong class="preview-title" id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><div class="preview-resizer" id="preview-resizer"><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div><div class="resize-handle" id="resize-handle"></div></div></div>')
+    parts.append(f'</div><div class="preview-box" id="preview-box"><div class="preview-head"><strong class="preview-title" id="preview-title">{t("preview_title")}</strong><button class="preview-close" id="preview-close" title="{t("preview_close")}">×</button></div><div class="preview-meta" id="preview-meta"></div><div class="preview-resizer" id="preview-resizer"><iframe id="artifact-preview" title="{t("preview_iframe_title")}" style="display:none"></iframe><div class="md-preview markdown" id="md-preview" style="display:none"></div><div class="resize-handle" id="resize-handle"></div></div></div>')
     parts.append(f'<details><summary>{t("recovered_files_title")} <span class="count">{len(recovered)}</span></summary><div class="artifact-toolbar"><label for="file-sort" class="count">{t("sort_label")}</label><select id="file-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="revisions">{t("sort_revisions")}</option></select></div><div class="file-list" id="file-list">')
     for item in recovered:
         updated = str(item.get("updated_at") or item.get("created_at") or "")
@@ -859,32 +932,50 @@ document.querySelectorAll('.locate-artifact').forEach(button=>button.addEventLis
   target.classList.remove('located');void target.offsetWidth;target.classList.add('located');
 }));
 // Preview is moved into the selected artifact card and grows only downward.
-const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), mdPreview=document.getElementById('md-preview');
+const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), previewMeta=document.getElementById('preview-meta'), mdPreview=document.getElementById('md-preview');
 const previewHome=previewBox.parentElement;
 function closePreview(){
   previewIframe.removeAttribute('src');previewIframe.style.display='none';
-  mdPreview.innerHTML='';mdPreview.style.display='none';previewBox.classList.remove('open');
+  mdPreview.innerHTML='';mdPreview.style.display='none';mdPreview.classList.remove('plain');
+  previewMeta.textContent='';previewBox.classList.remove('open','standalone');
+  previewHome.classList.remove('attachment-preview-open');
   previewHome.appendChild(previewBox);
 }
 document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{
-  var title=button.dataset.title, isMd=button.dataset.md==='1';
+  var title=button.dataset.title, isMd=button.dataset.md==='1', isText=button.dataset.text==='1';
   var card=button.closest('.artifact-card');
-  card.appendChild(previewBox);
+  var attachment=button.closest('.input-attachment-wrap');
+  previewHome.classList.toggle('attachment-preview-open',Boolean(attachment));
+  previewBox.classList.toggle('standalone',Boolean(attachment));
+  if(attachment)previewHome.prepend(previewBox);else if(card)card.appendChild(previewBox);
   previewTitle.textContent=title;
-  if(isMd){
+  previewMeta.textContent=button.dataset.meta||'';
+  if(isText){
     previewIframe.style.display='none';previewIframe.removeAttribute('src');
-    mdPreview.style.display='block';
+    mdPreview.style.display='block';mdPreview.classList.add('plain');mdPreview.innerHTML='';
+    var textEl=attachment?attachment.querySelector('.attachment-data'):null;
+    var plainText='';
+    if(textEl){try{plainText=JSON.parse(textEl.textContent);}catch(error){console.error('Attachment preview JSON:',error);}}
+    var pre=document.createElement('pre');pre.className='plain-text-preview';pre.textContent=plainText;mdPreview.appendChild(pre);
+  }else if(isMd){
+    previewIframe.style.display='none';previewIframe.removeAttribute('src');
+    mdPreview.style.display='block';mdPreview.classList.remove('plain');
     var mdEl=card?card.querySelector('.md-data'):null;
     var mdText='';
     if(mdEl){try{mdText=JSON.parse(mdEl.textContent);}catch(error){console.error('Markdown preview JSON:',error);}}
     mdPreview.innerHTML=mdText?renderMarkdownSimple(mdText):'<p style="color:#999">Empty.</p>';
   }else{
     var src=button.dataset.src;
-    mdPreview.style.display='none';mdPreview.innerHTML='';
+    mdPreview.style.display='none';mdPreview.innerHTML='';mdPreview.classList.remove('plain');
     previewIframe.style.display='block';
     previewIframe.src=src;
   }
   previewBox.classList.add('open');
+}));
+document.querySelectorAll('.attachment-copy').forEach(button=>button.addEventListener('click',async()=>{
+  var data=button.closest('.input-attachment-wrap').querySelector('.attachment-data'), value='';
+  if(data){try{value=JSON.parse(data.textContent);}catch(error){console.error('Attachment copy JSON:',error);}}
+  try{await copyText(value);button.classList.add('copied');setTimeout(()=>button.classList.remove('copied'),1200);}catch(error){console.error('Attachment copy:',error);}
 }));
 document.getElementById('preview-close').addEventListener('click',closePreview);
 document.addEventListener('keydown',event=>{{if(event.key==='Escape'&&previewBox.classList.contains('open'))closePreview();}});
@@ -1162,7 +1253,8 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
             if not isinstance(attachment, dict) or attachment.get("extracted_content") is None:
                 continue
             attachment_count += 1
-            name = attachment.get("file_name") or f"message_{msg_index:04d}_attachment_{file_index}"
+            original_name = str(attachment.get("file_name") or "")
+            name = original_name or f"message_{msg_index:04d}_attachment_{file_index}"
             # `extracted_content` is always text, even when the original upload
             # was DOCX/PDF.  Keep that distinction explicit so the recovered
             # text is not mistaken for the unavailable source binary.
@@ -1171,9 +1263,12 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
             target.write_text(str(attachment["extracted_content"]), encoding="utf-8")
             attachment_records.append({
                 "message_uuid": message.get("uuid"),
-                "name": name,
+                "name": original_name,
+                "file_type": attachment.get("file_type"),
                 "local_path": target.relative_to(conv_dir).as_posix(),
-                "bytes": len(str(attachment["extracted_content"]).encode("utf-8")),
+                "bytes": int(attachment.get("file_size") or len(str(attachment["extracted_content"]).encode("utf-8"))),
+                "lines": len(str(attachment["extracted_content"]).splitlines()),
+                "content": str(attachment["extracted_content"]),
             })
 
         for block in message.get("content") or []:
