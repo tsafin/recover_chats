@@ -1007,41 +1007,61 @@ function finishSidebarResize(event){{
 leftResizer.addEventListener('pointerup',finishSidebarResize);leftResizer.addEventListener('pointercancel',finishSidebarResize);
 function update(){{const q=search.value.trim().toLocaleLowerCase('{sort_locale}'); conversations.forEach(x=>x.hidden=q&&!x.dataset.title.includes(q)); const visible=conversations.filter(x=>!x.hidden); visible.sort((a,b)=>sort.value==='title'?a.dataset.title.localeCompare(b.dataset.title,'{sort_locale}'):(sort.value==='oldest'?a.dataset.date.localeCompare(b.dataset.date):b.dataset.date.localeCompare(a.dataset.date))).forEach(x=>list.appendChild(x)); document.getElementById('empty').style.display=visible.length?'none':'block';}}
 search.addEventListener('input',update);sort.addEventListener('change',update);update();
-conversations.forEach(link=>link.addEventListener('click',()=>{{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');}}));
+conversations.forEach(link=>link.addEventListener('click',()=>{{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');
+  var m=link.getAttribute('href').match(/conversations\/([^/]+)\//);
+  if(m) sessionStorage.setItem('restore_active_chat',m[1]);
+}}));
 if(conversations.length) conversations[0].classList.add('active');
 // Language switcher: save state, set cookie, redirect to localized index
 document.getElementById('lang-switch').addEventListener('change',function(){{
   var lang=this.value;
   document.cookie='restore_lang='+lang+';path=/;max-age=31536000';
-  // Save selected conversation and scroll position
+  // Save selected conversation folder and scroll position in URL params
   var active=document.querySelector('.conversation.active');
-  if(active) sessionStorage.setItem('restore_active_chat',active.getAttribute('href'));
+  var chatParam='';
+  if(active){{
+    var m=active.getAttribute('href').match(/conversations\/([^/]+)\//);
+    if(m) chatParam='?chat='+encodeURIComponent(m[1]);
+  }}
   sessionStorage.setItem('restore_sidebar_scroll',document.querySelector('.conversation-list').scrollTop);
   var suffix=lang==='{DEFAULT_LANG}'?'':'_'+lang;
   var base=document.location.pathname.replace(/(_(en|zh|ru))?\.html$/,'');
-  document.location.href=base+suffix+'.html';
+  document.location.href=base+suffix+'.html'+chatParam;
 }});
-// Restore selected conversation and scroll position after language switch
+// Restore selected conversation from ?chat= param or sessionStorage
 (function(){{
-  var savedChat=sessionStorage.getItem('restore_active_chat');
+  var params=new URLSearchParams(document.location.search);
+  var chatFolder=params.get('chat');
+  if(!chatFolder){{
+    // Also check hash as fallback
+    chatFolder=decodeURIComponent(document.location.hash.slice(1))||null;
+  }}
+  // Try sessionStorage as fallback
+  if(!chatFolder) chatFolder=sessionStorage.getItem('restore_active_chat');
   var savedScroll=sessionStorage.getItem('restore_sidebar_scroll');
-  if(savedChat){{
-    var link=document.querySelector('.conversation[href="'+savedChat+'"]');
+  if(chatFolder){{
+    // Find the conversation link by folder name
+    var link=null;
+    conversations.forEach(function(c){{
+      var m=c.getAttribute('href').match(/conversations\/([^/]+)\//);
+      if(m&&m[1]===chatFolder) link=c;
+    }});
     if(link){{
       conversations.forEach(x=>x.classList.remove('active'));
       link.classList.add('active');
-      // Update iframe src to the selected chat in the new language
+      // Update iframe src to the localized chat page
       var chatFrame=document.getElementById('chat-frame');
-      var baseChat=savedChat.replace(/(_(en|zh|ru))?\.html$/,'');
+      var baseChat=link.getAttribute('href').replace(/(_(en|zh|ru))?\.html$/,'');
       var lang=document.documentElement.lang||'{DEFAULT_LANG}';
       var langCode=lang.startsWith('zh')?'zh':lang.startsWith('en')?'en':'ru';
       var suffix=langCode==='{DEFAULT_LANG}'?'':'_'+langCode;
       chatFrame.src=baseChat+suffix+'.html';
-      if(savedScroll) document.querySelector('.conversation-list').scrollTop=Number(savedScroll);
-      sessionStorage.removeItem('restore_active_chat');
-      sessionStorage.removeItem('restore_sidebar_scroll');
+      // Scroll the link into view
+      link.scrollIntoView({{block:'nearest'}});
+      sessionStorage.setItem('restore_active_chat',chatFolder);
     }}
   }}
+  if(savedScroll){{document.querySelector('.conversation-list').scrollTop=Number(savedScroll);sessionStorage.removeItem('restore_sidebar_scroll');}}
 }})();
 </script></body></html>""".replace("__FIRST_CHAT__", html.escape(first_url, quote=True))
 
