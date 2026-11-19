@@ -140,9 +140,12 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   pandoc \
   texlive-latex-extra \
   texlive-pictures \
+  texlive-science \
   texlive-fonts-recommended \
   texlive-extra-utils \
   poppler-utils \
+  wkhtmltopdf \
+  libcairo2 \
   libreoffice-core-nogui \
   libreoffice-writer-nogui \
   default-jre-headless
@@ -318,7 +321,19 @@ python recover_chats\regenerate_node_office.py restored_export_new\conversations
 
 与 Python 的情况一样，个别的 `failed`、`timeout` 或 `skipped-*` 是可接受的，应根据日志进行解释。不要因为其他生成器的错误而删除已成功生成的文件。
 
-## 8. 更新 HTML 和文件时间
+## 8. DOCX、HTML 和 PDF 配方与归档更新
+
+- **PPTX、DOCX、XLSX**：先运行 `python` 和 `node` 阶段，再按生成器导入的模块和报告补充依赖。
+- **Markdown 或 LaTeX → DOCX**：使用 `pandoc-docx`。复杂文档需先准备图表、字体等资源，然后在本地完成专用排版。
+- **Markdown 或 LaTeX → HTML → PDF**：依次使用 `pandoc-html` 和 `html-pdf`。已有 HTML 时可直接转换，需提前嵌入资源，因为打印时禁用 JavaScript 和本地文件访问。
+- **LaTeX → PDF**：使用 `latex-pdf`。运行两次 pdfLaTeX，引用文献或独立图表应按需求提前准备。
+- **复制或重命名**：使用 `copy`，保持扩展名一致。PDF 通过 `pdfinfo` 校验，Office 文件检查 ZIP 和 CRC。
+
+源文件准备好后，运行 `python restore_pipeline.py --source . --output restored_export_new --from-stage recipes`。报告写入 `recipe_docx_regeneration_report.json` 和 `known_office_regeneration_report.json`。手动构建后，从 `timestamps` 阶段更新文件时间、HTML 链接并校验。
+
+- `texlive-science` 提供 `algorithm2e` 等宏包。Windows 使用 MiKTeX 安装源文件所需宏包。
+- HTML 转 PDF 使用 `wkhtmltopdf`。Windows 需单独安装，并将其 `bin` 目录加入 `PATH`。
+- 对于使用 Cairo 或 OpenCV 的生成器，运行 `python -m pip install cairosvg opencv-python-headless`。CairoSVG 依赖系统 Cairo。Windows 上需安装兼容的 Cairo DLL，也可使用 WSL。
 
 在对话目录中的 `conversation.json` 旁创建本地文件 `recipes.local.json`。
 此文件由 Git 忽略，格式为配方对象数组，例如：

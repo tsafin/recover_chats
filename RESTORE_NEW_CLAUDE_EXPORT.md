@@ -173,9 +173,12 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   pandoc \
   texlive-latex-extra \
   texlive-pictures \
+  texlive-science \
   texlive-fonts-recommended \
   texlive-extra-utils \
   poppler-utils \
+  wkhtmltopdf \
+  libcairo2 \
   libreoffice-core-nogui \
   libreoffice-writer-nogui \
   default-jre-headless
@@ -351,7 +354,19 @@ python recover_chats\regenerate_node_office.py restored_export_new\conversations
 
 Как и для Python, отдельные `failed`, `timeout` или `skipped-*` допустимы и должны быть объяснены по журналу. Не удаляйте успешно созданные файлы из-за ошибок других генераторов.
 
-## 8. Обновление HTML и времени файлов
+## 8. Рецепты DOCX, HTML и PDF и обновление архива
+
+- **PPTX, DOCX и XLSX из исходного генератора.** Начните со стадий `python` и `node`. Дополнительные зависимости определяйте по импортам восстановленного генератора и его отчёту.
+- **Markdown или LaTeX → DOCX.** Используйте `pandoc-docx`. Для сложного документа заранее подготовьте рисунки и другие ресурсы, а специфическое оформление выполните локально.
+- **Markdown или LaTeX → HTML → PDF.** Укажите `pandoc-html`, затем `html-pdf`. Для готового HTML достаточно `html-pdf`. Ресурсы встройте заранее, поскольку при печати отключены JavaScript и доступ к локальным файлам.
+- **LaTeX → PDF.** Используйте `latex-pdf`. Рецепт запускает pdfLaTeX дважды. Шрифты, библиографию и отдельные рисунки при необходимости подготовьте заранее.
+- **Копирование и переименование.** Используйте `copy` с тем же расширением. PDF проверяется через `pdfinfo`, а Office-файлы — по структуре ZIP и CRC.
+
+Когда входы готовы, запустите `python restore_pipeline.py --source . --output restored_export_new --from-stage recipes`. Отчёты записываются в `recipe_docx_regeneration_report.json` и `known_office_regeneration_report.json`. После ручной сборки начните со стадии `timestamps`, чтобы обновить даты, ссылки и запустить проверку.
+
+- `texlive-science` предоставляет `algorithm2e` и другие пакеты для научных документов. На Windows добавьте нужные пакеты через MiKTeX.
+- Для HTML → PDF нужен `wkhtmltopdf`. На Windows установите его отдельно и добавьте каталог `bin` в `PATH`.
+- Для генераторов с Cairo или OpenCV выполните `python -m pip install cairosvg opencv-python-headless`. CairoSVG также требует нативную Cairo. На Windows нужна совместимая Cairo DLL, либо генератор можно запустить в WSL.
 
 Сложные сборки задаются вручную в локальном `recipes.local.json` рядом с
 `conversation.json`. Файл исключён из Git. Пример с вымышленными путями:
