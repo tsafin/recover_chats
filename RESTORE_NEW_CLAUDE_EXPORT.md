@@ -14,8 +14,6 @@
 - `restore_export.py` — основной восстановитель и генератор HTML-интерфейса;
 - `regenerate_python_office.py` — запуск восстановленных Python-генераторов: Office-файлы (openpyxl, python-docx, python-pptx) и медиа-ассеты (matplotlib, PIL, cv2, HTML-билдеры с base64-встраиванием);
 - `regenerate_node_office.py` — попытка запуска восстановленных Node.js-генераторов PPTX/DOCX/XLSX;
-- `regenerate_recipe_docx.py` — воспроизведение многошаговых DOCX-рецептов, сохранённых в tool calls (TeX, рисунки, Pandoc и `python-docx`);
-- `regenerate_known_office.py` — воспроизведение явно проверенных рецептов и точных операций переименования для известных DOCX/XLSX этого экспорта;
 - `artifact_timestamps.py` — восстановление `mtime` перегенерированных артефактов по журналам выдачи файлов и tool calls;
 - `check_restoration.py` — проверка локальных ссылок и целостности полученных Office-файлов.
 
@@ -117,19 +115,6 @@ python -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib
 - `pdftoppm` (Poppler) — преобразование PDF-рисунков в PNG;
 - `libreoffice`/`soffice` — дополнительная визуальная проверка DOCX.
 
-Рецепт справочника использует Markdown и `style.css` из `files/filesystem/`
-диалога и два PNG из `regenerated/`, которые создаёт стадия `python`.
-Стадия `known` собирает автономный HTML с Pandoc и печатает его в PDF
-через wkhtmltopdf. Для повторной сборки выполните `--from-stage python` на
-том же экспорте в изолированном окружении. Стадии `timestamps`, `render`
-и `validate` восстановят даты, добавят ссылки в чат и проверят результат.
-
-На Windows установите те же пакеты через MiKTeX.
-
-Если исходники и графики уже восстановлены, запустите
-`--only-stage known`, затем `--from-stage render` для обновления ссылок.
-Рецепты Pandoc, pdfLaTeX и wkhtmltopdf работают без `node_modules`.
-
 ### 3.3. Установка зависимостей на Windows
 
 #### Автоматическая установка (рекомендуется)
@@ -188,11 +173,9 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   pandoc \
   texlive-latex-extra \
   texlive-pictures \
-  texlive-science \
   texlive-fonts-recommended \
   texlive-extra-utils \
   poppler-utils \
-  wkhtmltopdf \
   libreoffice-core-nogui \
   libreoffice-writer-nogui \
   default-jre-headless
@@ -201,7 +184,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
 Python:
 
 ```bash
-python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas numpy pillow cairosvg
+python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas numpy pillow
 ```
 
 Node.js:
@@ -229,7 +212,6 @@ npm install --prefix restored_export_new/runtime pptxgenjs@3.12.0 docx@9.5.1 rea
 
 3. **`python3` vs `python`.** На Windows исполняемый файл Python обычно называется `python`, а не `python3`. Все скрипты используют `sys.executable` вместо жёстко заданного `python3`.
 
-4. **`cairosvg` без нативной Cairo.** На Windows `cairosvg` устанавливается через pip, но требует нативную библиотеку `libcairo-2.dll`, которая отсутствует. DOCX-рецепты со SVG-диаграммами обрабатываются через альтернативный путь в `regenerate_known_office.py`; `cairosvg` используется только при его успешном импорте.
 
 ## 4. Безопасность
 
@@ -244,9 +226,7 @@ ZIP-файлы и восстановленные генераторы следу
 
 Скрипты перегенерации действительно запускают часть восстановленного Python/JavaScript-кода. Они отбрасывают известные опасные конструкции и перенаправляют типовые выходные пути в `regenerated/`, но это эвристическая, а не формальная песочница.
 
-`regenerate_recipe_docx.py` также выполняет восстановленные промежуточные Python-скрипты, но копирует их и исходники в одноразовый временный каталог. В каталог диалога копируется только итоговый проверенный DOCX.
 
-`regenerate_known_office.py` содержит явный перечень проверенных рецептов этого набора. Он не является универсальным распознавателем: для другого экспорта перечень следует расширять только после аудита соответствующих tool calls и входных файлов.
 
 Поэтому перегенерацию следует выполнять:
 
@@ -371,66 +351,28 @@ python recover_chats\regenerate_node_office.py restored_export_new\conversations
 
 Как и для Python, отдельные `failed`, `timeout` или `skipped-*` допустимы и должны быть объяснены по журналу. Не удаляйте успешно созданные файлы из-за ошибок других генераторов.
 
-## 8. DOCX-рецепты и обязательное обновление HTML
+## 8. Обновление HTML и времени файлов
 
-### 8.1. Перегенерация DOCX по сохранённым tool-call-рецептам
+Сложные сборки задаются вручную в локальном `recipes.local.json` рядом с
+`conversation.json`. Файл исключён из Git. Пример с вымышленными путями:
 
-После установки системных зависимостей выполните:
-
-**Linux/WSL:**
-
-```bash
-python3 regenerate_recipe_docx.py restored_export_new/conversations
+```json
+[
+  {"kind": "pandoc-docx", "source": "files/outputs/notes.md", "output": "notes.docx"},
+  {"kind": "pandoc-html", "source": "files/outputs/notes.md", "output": "notes.html"},
+  {"kind": "html-pdf", "source": "regenerated/notes.html", "output": "notes.pdf"}
+]
 ```
 
-**Windows:**
+Стадия `recipes` выполняет `pandoc-docx`. Стадия `known` выполняет остальные
+операции в порядке списка, в том числе `latex-pdf` и `copy`. Пути источников
+относительны к каталогу диалога, выходы записываются в `regenerated/`.
+Для соответствующих операций нужны Pandoc, pdfLaTeX или wkhtmltopdf, а для
+проверки PDF нужен Poppler (`pdfinfo`). Запускайте только проверенные рецепты
+и исходники в изолированной среде. Частные исправления и нестандартные шаги
+нужно выполнить локально перед конвертацией.
 
-```cmd
-python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
-```
-
-Supported recipes use recovered local inputs.
-
-1. копирование `paper.tex`, файлов рисунков и восстановленных `prep.py`, `prep2.py`, `post.py`;
-2. применение поздних исправлений, записанных последующими `sed`/Python tool calls;
-3. компиляция TikZ/PGFPlots-рисунков через `pdflatex`;
-4. преобразование рисунков и формул в PNG;
-5. сборка промежуточного DOCX через Pandoc;
-6. оформление через `python-docx`;
-7. проверка ZIP/CRC и повторное чтение через `python-docx`;
-8. дополнительная попытка конвертации LibreOffice в PDF.
-
-Итоговые документы помещаются в `<conversation>/regenerated/`, а отчёт сохраняется в:
-
-```text
-<output>/recipe_docx_regeneration_report.json
-```
-
-Успешная запись должна иметь `status: "ok"`. Поле `validation` показывает CRC, число абзацев, таблиц, встроенных изображений и результат дополнительной проверки LibreOffice.
-
-### 8.2. Проверенные рецепты DOCX/XLSX конкретного экспорта
-
-Для этого репозитория дополнительно выполните:
-
-**Linux/WSL:**
-
-```bash
-python3 regenerate_known_office.py \
-  restored_export_new/conversations \
-  restored_export_new/runtime/node_modules
-```
-
-**Windows:**
-
-```cmd
-python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
-```
-
-Скрипт воспроизводит только явно сопоставленные рецепты: Pandoc из восстановленного Markdown, вызовы восстановленного `md2docx.js`, полные Node.js-рецепты с диаграммами и точные `cp`/rename-операции из tool calls. Каждый результат проверяется как ZIP/CRC и повторно открывается через `python-docx` или `openpyxl`. Отчёт: `<output>/known_office_regeneration_report.json`.
-
-Если нужное имя присутствует только в `presented_files.json`, но отсутствует финальный исходник, шаблон, изображение или набор данных, скрипт не создаёт фиктивную замену. Такой файл остаётся в списке невосстановленных с объяснимой причиной.
-
-### 8.3. Обновление HTML после всех перегенераций
+### 8.1. Обновление HTML после всех перегенераций
 
 После любой перегенерации повторите основной запуск с теми же `--source` и `--output`:
 
@@ -460,7 +402,7 @@ python recover_chats\restore_export.py --source . --output restored_export_new
 
 Если перегенерация была полностью пропущена, второй проход не обязателен.
 
-### 8.4. Восстановление времени файлов
+### 8.2. Восстановление времени файлов
 
 Все скрипты перегенерации после успешного создания артефакта вызывают `artifact_timestamps.py` и восстанавливают время изменения (`mtime`) результирующего файла из журнала диалога:
 
@@ -605,8 +547,6 @@ restored_export_new/
 ├── validation_report.json
 ├── python_regeneration_report.json
 ├── node_regeneration_report.json
-├── recipe_docx_regeneration_report.json
-├── known_office_regeneration_report.json
 ├── raw/
 ├── project_documents/
 └── conversations/
@@ -659,9 +599,7 @@ npm install --prefix restored_export_new\runtime pptxgenjs@3.12.0 docx@9.5.1 rea
 
 python recover_chats\regenerate_node_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 
-python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
 
-python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 
 python recover_chats\restore_export.py --source . --output restored_export_new
 
@@ -687,13 +625,6 @@ python3 regenerate_node_office.py \
   /data/restored_export_new/conversations \
   /data/restored_export_new/runtime/node_modules
 
-python3 regenerate_recipe_docx.py \
-  /data/restored_export_new/conversations
-
-python3 regenerate_known_office.py \
-  /data/restored_export_new/conversations \
-  /data/restored_export_new/runtime/node_modules
-
 python3 restore_export.py \
   --source /data/new_export \
   --output /data/restored_export_new
@@ -714,7 +645,7 @@ python3 check_restoration.py \
 4. Проверить доступность Python и `markdown_it`.
 5. Выполнить первый проход `restore_export.py` и изучить `archive_report.json`.
 6. Не запускать недоверенные генераторы без допустимой изоляции.
-7. При разрешённой перегенерации запустить Python-, Node-, общий DOCX-рецепт и проверенные Office-рецепты по отдельности и сохранить их отчёты.
+7. При разрешённой перегенерации запустить Python- и Node.js-генераторы и сохранить отчёты.
 8. Выполнить второй проход `restore_export.py` после перегенерации.
 9. Запустить `check_restoration.py` и не завершать задачу, пока не объяснены битые ссылки или повреждённые Office-файлы.
 10. Сообщить пользователю абсолютный путь к `INDEX.html`, число диалогов, файлов, артефактов, успешных перегенераций и оставшиеся ограничения.

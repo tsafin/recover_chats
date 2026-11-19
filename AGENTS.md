@@ -17,8 +17,8 @@ media assets (PNG/GIF/SVG/HTML), and a multi-language UI.
 | `restore_export.py` | Main restorer: unpacks ZIP, builds per-conversation HTML (all languages), INDEX |
 | `regenerate_python_office.py` | Runs recovered Python generators: Office (openpyxl, python-docx, python-pptx) + media (matplotlib, PIL, cv2, HTML builders) |
 | `regenerate_node_office.py` | Runs recovered Node.js generators (pptxgenjs, docx) |
-| `regenerate_recipe_docx.py` | Replays multi-step DOCX recipes (TeX → Pandoc → python-docx) |
-| `regenerate_known_office.py` | Replays audited DOCX/XLSX recipes and the CPU frequency HTML/PDF recipe (Pandoc, wkhtmltopdf, Poppler) |
+| `regenerate_recipe_docx.py` | Converts locally configured Markdown/TeX recipes to DOCX |
+| `regenerate_known_office.py` | Runs explicit local HTML/PDF and document copy recipes |
 | `artifact_timestamps.py` | Restores regenerated artifact mtimes from presentation/tool-call logs |
 | `check_restoration.py` | Validates local links and OOXML ZIP integrity |
 | `winenv.py` | Cross-platform helpers: winget tool discovery, `to_posix_path()`, `kill_orphaned_tex_processes()` |

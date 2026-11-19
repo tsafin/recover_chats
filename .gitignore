@@ -2,6 +2,7 @@
 *.zip
 *.rar
 manifest-*.json
+recipes.local.json
 
 # Restored exports and historical extraction workspaces
 /restored_export*/

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import traceback
 from collections.abc import Callable
 from pathlib import Path
@@ -11,9 +10,9 @@ from typing import Any
 from artifact_timestamps import restore_timestamps
 from check_restoration import validate_restoration
 from regenerate_known_office import regenerate_known
+from regenerate_recipe_docx import regenerate_recipes
 from regenerate_node_office import regenerate_node
 from regenerate_python_office import regenerate_python
-from regenerate_recipe_docx import regenerate_recipes
 from restore_export import restore_export
 
 from .model import PipelineConfig, PipelineResult, StageResult, utc_now
@@ -99,25 +98,17 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
 
         execute("node", node_stage)
 
-        def recipe_stage() -> StageResult:
-            report, summary = regenerate_recipes(config.conversations)
-            if summary.get("error"):
-                return StageResult("recipes", status="skipped", warnings=[json.dumps(summary, ensure_ascii=False)], summary=summary)
-            failed = int(summary.get("failed") or 0)
-            return StageResult("recipes", status="partial" if failed else "ok", exit_code=1 if failed else 0, fatal=config.strict_generators and bool(failed), summary=summary, created=_created(report), report=str(summary.get("report") or ""))
+        def local_stage(name: str, action: Callable) -> StageResult:
+            report, summary = action(config.conversations)
+            failed = bool(summary["failed"])
+            return StageResult(
+                name, status="partial" if failed else "ok" if report else "skipped",
+                exit_code=int(failed), fatal=config.strict_generators and failed,
+                summary=summary, created=_created(report), report=str(summary["report"]),
+            )
 
-        execute("recipes", recipe_stage)
-
-        def known_stage() -> StageResult:
-            assert config.node_modules is not None
-            report, summary = regenerate_known(config.conversations, config.node_modules)
-            if not report:
-                return StageResult("known", status="skipped", summary=summary,
-                                   warnings=["no applicable known recipes"])
-            failed = int(summary.get("failed") or 0)
-            return StageResult("known", status="partial" if failed else "ok", exit_code=1 if failed else 0, fatal=config.strict_generators and bool(failed), summary=summary, created=_created(report), report=str(summary.get("report") or ""))
-
-        execute("known", known_stage)
+        execute("recipes", lambda: local_stage("recipes", regenerate_recipes))
+        execute("known", lambda: local_stage("known", regenerate_known))
     else:
         for name in ("python", "node", "recipes", "known"):
             if _selected(config, name):

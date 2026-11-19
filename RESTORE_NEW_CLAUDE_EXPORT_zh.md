@@ -15,8 +15,6 @@
 - `restore_export.py` — 主还原程序，同时生成 HTML 界面；
 - `regenerate_python_office.py` — 安全地尝试运行已还原的 Python Office 文件生成器；
 - `regenerate_node_office.py` — 尝试运行已还原的 Node.js PPTX/DOCX/XLSX 生成器；
-- `regenerate_recipe_docx.py` — 复现保存在 tool calls 中的多步骤 DOCX 制作流程（TeX、绘图、Pandoc 与 `python-docx`）；
-- `regenerate_known_office.py` — 复现已明确核验过的制作流程，以及针对本导出中已知 DOCX/XLSX 的精确重命名操作；
 - `artifact_timestamps.py` — 根据文件展示记录和 tool calls 恢复重新生成产物的 `mtime`；
 - `check_restoration.py` — 校验本地链接和所得 Office 文件的完整性。
 
@@ -55,15 +53,6 @@ new_export/
 5. 每套新导出请使用一个新的、空的输出目录。这样可以避免新旧对话混淆。
 
 ## 3. 环境要求
-
-再在 `known` 阶段用 Pandoc 将 Markdown、CSS 和图表打包成独立 HTML，
-最后用 wkhtmltopdf 输出 PDF，并用 Poppler 的 `pdfinfo` 校验。
-Ubuntu/WSL 可运行 `sudo apt-get install pandoc wkhtmltopdf poppler-utils`。
-Windows 请安装 wkhtmltopdf 并将其 `bin` 目录加入 `PATH`。
-`texlive-science`（algorithm2e）、`texlive-latex-extra` 和 `texlive-pictures`。
-源文件及图表已恢复时，可先运行 `--only-stage known`，再运行
-`--from-stage render` 更新链接。这些 HTML/PDF 配方无需 `node_modules`。
-在隔离环境中用 `--from-stage python` 重建同一份导出。后续阶段会还原时间戳、更新聊天链接并校验输出。
 
 ### 3.1. 最低要求（所有平台）
 
@@ -162,7 +151,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
 Python：
 
 ```bash
-python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas numpy pillow cairosvg
+python3 -m pip install markdown-it-py openpyxl python-docx python-pptx matplotlib pandas numpy pillow
 ```
 
 Node.js：
@@ -190,7 +179,6 @@ npm install --prefix restored_export_new/runtime pptxgenjs@3.12.0 docx@9.5.1 rea
 
 3. **`python3` 与 `python`。** 在 Windows 上，Python 可执行文件通常名为 `python`，而非 `python3`。所有脚本都使用 `sys.executable`，而不是硬编码的 `python3`。
 
-4. **无原生 Cairo 的 `cairosvg`。** 在 Windows 上，`cairosvg` 可以通过 pip 安装，但它依赖原生库 `libcairo-2.dll`，而该库不存在。包含 SVG 图表的 DOCX 制作流程在 `regenerate_known_office.py` 中有备选路径；`cairosvg` 仅在成功导入时才会被使用。
 
 ## 4. 安全性
 
@@ -205,9 +193,7 @@ ZIP 文件和已还原的生成器应被视为不可信。
 
 重新生成脚本确实会运行部分已还原的 Python/JavaScript 代码。它们会丢弃已知的危险构造，并将常见的输出路径重定向到 `regenerated/`，但这只是一种启发式处理，并非正式的沙箱。
 
-`regenerate_recipe_docx.py` 也会执行已还原的中间 Python 脚本，但它会将脚本和源码复制到一次性临时目录中。只有最终经过校验的 DOCX 才会被复制到对话目录。
 
-`regenerate_known_office.py` 包含针对本套导出已明确核验的制作流程清单。它并非通用的识别器：对于其他导出，只有在审计相应 tool calls 和输入文件之后，才应扩展该清单。
 
 因此，重新生成应在以下条件下进行：
 
@@ -332,65 +318,26 @@ python recover_chats\regenerate_node_office.py restored_export_new\conversations
 
 与 Python 的情况一样，个别的 `failed`、`timeout` 或 `skipped-*` 是可接受的，应根据日志进行解释。不要因为其他生成器的错误而删除已成功生成的文件。
 
-## 8. DOCX 制作流程与必须的 HTML 更新
+## 8. 更新 HTML 和文件时间
 
-### 8.1. 按保存的 tool call 制作流程重新生成 DOCX
+在对话目录中的 `conversation.json` 旁创建本地文件 `recipes.local.json`。
+此文件由 Git 忽略，格式为配方对象数组，例如：
 
-在安装系统依赖后执行：
-
-**Linux/WSL：**
-
-```bash
-python3 regenerate_recipe_docx.py restored_export_new/conversations
+```json
+[
+  {"kind": "pandoc-docx", "source": "files/outputs/notes.md", "output": "notes.docx"},
+  {"kind": "pandoc-html", "source": "files/outputs/notes.md", "output": "notes.html"},
+  {"kind": "html-pdf", "source": "regenerated/notes.html", "output": "notes.pdf"}
+]
 ```
 
-**Windows：**
+`recipes` 阶段处理 `pandoc-docx`，`known` 阶段按列表顺序处理其余配方，
+包括 `latex-pdf` 和 `copy`。源路径相对于对话目录，输出保存在
+`regenerated/`。根据配方安装 Pandoc、pdfLaTeX 或 wkhtmltopdf，
+并使用 Poppler 的 `pdfinfo` 校验 PDF。请在隔离环境中使用经过检查的配方和源文件。
+特殊构建步骤应在转换前在本地执行。
 
-```cmd
-python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
-```
-
-
-1. 复制 `paper.tex`、图形文件以及已还原的 `prep.py`、`prep2.py`、`post.py`；
-2. 应用后续 `sed`/Python tool calls 中记录的后期修正；
-3. 通过 `pdflatex` 编译 TikZ/PGFPlots 图形；
-4. 将图形和公式转换为 PNG；
-5. 通过 Pandoc 组装中间 DOCX；
-6. 通过 `python-docx` 进行排版；
-7. 校验 ZIP/CRC 并通过 `python-docx` 重新读取；
-8. 额外尝试用 LibreOffice 转换为 PDF。
-
-最终文档放入 `<conversation>/regenerated/`，报告保存在：
-
-```text
-<output>/recipe_docx_regeneration_report.json
-```
-
-成功的记录应具有 `status: "ok"`。`validation` 字段显示 CRC、段落数、表格数、内嵌图像数以及额外 LibreOffice 校验的结果。
-
-### 8.2. 本导出的已核验 DOCX/XLSX 制作流程
-
-对于本仓库，额外执行：
-
-**Linux/WSL：**
-
-```bash
-python3 regenerate_known_office.py \
-  restored_export_new/conversations \
-  restored_export_new/runtime/node_modules
-```
-
-**Windows：**
-
-```cmd
-python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
-```
-
-该脚本仅复现已明确映射的制作流程：从已还原的 Markdown 调用 Pandoc、调用已还原的 `md2docx.js`、包含图表的完整 Node.js 制作流程，以及来自 tool calls 的精确 `cp`/rename 操作。每个结果都作为 ZIP/CRC 进行校验，并通过 `python-docx` 或 `openpyxl` 重新打开。报告：`<output>/known_office_regeneration_report.json`。
-
-如果所需名称仅出现在 `presented_files.json` 中，但缺少最终的源码、模板、图像或数据集，脚本不会创建伪造的替代品。此类文件会留在未还原列表中，并附可解释的原因。
-
-### 8.3. 在所有重新生成之后更新 HTML
+### 8.1. 在所有重新生成之后更新 HTML
 
 在任何重新生成之后，请使用相同的 `--source` 和 `--output` 再次运行主程序：
 
@@ -420,7 +367,7 @@ python recover_chats\restore_export.py --source . --output restored_export_new
 
 如果完全跳过了重新生成，则第二次运行不是必需的。
 
-### 8.4. 恢复文件时间
+### 8.2. 恢复文件时间
 
 每个重新生成脚本在成功创建产物后都会调用 `artifact_timestamps.py`，并从对话日志恢复结果文件的修改时间（`mtime`）：
 
@@ -521,8 +468,6 @@ restored_export_new/
 ├── validation_report.json
 ├── python_regeneration_report.json
 ├── node_regeneration_report.json
-├── recipe_docx_regeneration_report.json
-├── known_office_regeneration_report.json
 ├── raw/
 ├── project_documents/
 └── conversations/
@@ -575,9 +520,7 @@ npm install --prefix restored_export_new\runtime pptxgenjs@3.12.0 docx@9.5.1 rea
 
 python recover_chats\regenerate_node_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 
-python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
 
-python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 
 python recover_chats\restore_export.py --source . --output restored_export_new
 
@@ -603,13 +546,6 @@ python3 regenerate_node_office.py \
   /data/restored_export_new/conversations \
   /data/restored_export_new/runtime/node_modules
 
-python3 regenerate_recipe_docx.py \
-  /data/restored_export_new/conversations
-
-python3 regenerate_known_office.py \
-  /data/restored_export_new/conversations \
-  /data/restored_export_new/runtime/node_modules
-
 python3 restore_export.py \
   --source /data/new_export \
   --output /data/restored_export_new
@@ -630,7 +566,7 @@ python3 check_restoration.py \
 4. 检查 Python 和 `markdown_it` 是否可用。
 5. 执行首次 `restore_export.py` 运行，并审阅 `archive_report.json`。
 6. 在没有适当隔离的情况下，不要运行不可信的生成器。
-7. 在允许重新生成的情况下，分别运行 Python、Node、通用 DOCX 制作流程和已核验的 Office 制作流程，并保存各自的报告。
+7. 如果允许再生成，请运行 Python 和 Node.js 生成器并保留报告.
 8. 在重新生成之后执行第二次 `restore_export.py` 运行。
 9. 运行 `check_restoration.py`，在解释清楚损坏链接或损坏的 Office 文件之前，不要结束任务。
 10. 向用户报告 `INDEX.html` 的绝对路径、对话数、文件数、artifacts 数、成功的重新生成次数，以及剩余的限制。

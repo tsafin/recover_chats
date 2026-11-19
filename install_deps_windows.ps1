@@ -138,8 +138,6 @@ Write-Host @"
 3. Run regeneration scripts:
    python recover_chats\regenerate_python_office.py restored_export_new\conversations
    python recover_chats\regenerate_node_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
-   python recover_chats\regenerate_recipe_docx.py restored_export_new\conversations
-   python recover_chats\regenerate_known_office.py restored_export_new\conversations restored_export_new\runtime\node_modules
 
 4. Run second restore pass to link regenerated files:
    python recover_chats\restore_export.py --source . --output .\restored_export_new
