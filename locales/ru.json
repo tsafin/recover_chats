@@ -77,7 +77,8 @@
     "file_created": "создан",
     "file_revisions": "ревизий",
     "source_reference_title": "Ссылка из исходного Markdown; целевой файл мог не войти в экспорт",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "summary_label": "Краткое содержание разговора"
   },
 
   "artifacts_index": {

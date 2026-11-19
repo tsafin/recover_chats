@@ -77,7 +77,8 @@
     "file_created": "created",
     "file_revisions": "revisions",
     "source_reference_title": "Link from original Markdown; target file may not be in export",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "summary_label": "Conversation summary"
   },
 
   "artifacts_index": {

@@ -77,7 +77,8 @@
     "file_created": "创建于",
     "file_revisions": "次修订",
     "source_reference_title": "来自原始 Markdown 的链接；目标文件可能未包含在导出中",
-    "untitled": "未命名"
+    "untitled": "未命名",
+    "summary_label": "对话摘要"
   },
 
   "artifacts_index": {
