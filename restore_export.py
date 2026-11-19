@@ -615,6 +615,14 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
 .preview-box.standalone{{margin:0;padding:0;border:0}}.preview-meta{{display:none;color:var(--muted);font-size:11px;margin:0 0 10px}}.preview-meta:not(:empty){{display:block}}.preview-box.standalone .preview-resizer{{height:calc(100vh - 78px);max-height:none}}.preview-box .md-preview.plain{{padding:0}}.plain-text-preview{{min-height:100%;margin:0;padding:18px!important;border-radius:0;background:var(--surface);color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.52 ui-monospace,SFMono-Regular,Consolas,monospace}}.panel.attachment-preview-open{{height:100vh;padding-bottom:10px;overflow:hidden}}.panel.attachment-preview-open>:not(.preview-box){{display:none}}
 .lang-switch{{position:absolute;top:10px;right:18px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:4px 6px;font:inherit;font-size:11px}}
 @media(hover:none){{.artifact-hover-actions{{position:static;grid-column:2;grid-row:2;justify-self:end;opacity:1;transform:none;pointer-events:auto;margin-top:5px}}}}@media(max-width:900px){{.layout{{grid-template-columns:1fr;height:auto;overflow:auto}}main{{padding:0 14px 50px;overflow:visible}}.hero{{margin:0 -14px 20px;padding:11px 14px}}.right-resizer{{display:none}}aside{{height:auto;order:-1;border:0;border-bottom:1px solid var(--line)}}.message.user{{max-width:88%}}.lang-switch{{right:10px}}}}
+.summary-card{{position:relative}}
+.summary-card .conv-summary>summary{{min-height:34px;padding:8px 108px 8px 10px}}
+.summary-card>.artifact-hover-actions{{top:3px;right:5px}}
+.summary-card .artifact-icon-button{{width:28px;height:28px}}
+.summary-card .artifact-icon-button svg{{width:16px;height:16px}}
+.summary-card:hover .artifact-hover-actions,.summary-card:focus-within .artifact-hover-actions{{opacity:1;transform:none;pointer-events:auto}}
+#summary-copy.copied{{color:#68a27b!important}}
+@media(hover:none){{.summary-card>.artifact-hover-actions{{position:absolute;margin-top:0;justify-content:flex-end}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
         '<section class="hero"><div class="hero-row">', f"<h1>{html.escape(title)}</h1>",
@@ -623,7 +631,19 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
     # Conversation summary — collapsible highlighted block
     summary_text = str(conversation.get("summary") or "").strip()
     if summary_text:
-        parts.append(f'<details class="conv-summary"><summary>📖 {t("summary_label")}</summary><div class="markdown">{render_markdown(summary_text, resource_links, lang)}</div></details>')
+        summary_url = "data:text/markdown;charset=utf-8," + quote(summary_text + "\n", safe="")
+        preview_label = html.escape(t("button_preview"), quote=True)
+        download_label = html.escape(t("button_download"), quote=True)
+        copy_label = html.escape(t("button_copy_attachment"), quote=True)
+        parts.extend([
+            '<div class="summary-card">',
+            f'<details class="conv-summary" id="conv-summary"><summary>📖 {t("summary_label")}</summary><div class="markdown">{render_markdown(summary_text, resource_links, lang)}</div></details>',
+            '<div class="artifact-hover-actions">',
+            f'<button type="button" class="artifact-icon-button" id="summary-preview" aria-controls="conv-summary" aria-expanded="false" title="{preview_label}" aria-label="{preview_label}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button>',
+            f'<a class="artifact-icon-button" id="summary-download" href="{summary_url}" download="summary.md" title="{download_label}" aria-label="{download_label}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg></a>',
+            f'<button type="button" class="artifact-icon-button" id="summary-copy" title="{copy_label}" aria-label="{copy_label}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg></button>',
+            '</div></div>',
+        ])
     parts.append(
         f'<div class="meta">{t("uuid_label")}: <code>{html.escape(str(conversation.get("uuid") or ""))}</code><br>{t("created_label")}: {html.escape(str(conversation.get("created_at") or ""))}</div>'
     )
@@ -988,6 +1008,25 @@ document.querySelectorAll('.attachment-copy').forEach(button=>button.addEventLis
   if(data){try{value=JSON.parse(data.textContent);}catch(error){console.error('Attachment copy JSON:',error);}}
   try{await copyText(value);button.classList.add('copied');setTimeout(()=>button.classList.remove('copied'),1200);}catch(error){console.error('Attachment copy:',error);}
 }));
+const summaryDetails=document.getElementById('conv-summary');
+if(summaryDetails){
+  const previewButton=document.getElementById('summary-preview');
+  const copyButton=document.getElementById('summary-copy');
+  previewButton.addEventListener('click',()=>{summaryDetails.open=!summaryDetails.open;});
+  summaryDetails.addEventListener('toggle',()=>previewButton.setAttribute('aria-expanded',String(summaryDetails.open)));
+  copyButton.addEventListener('click',async()=>{
+    const url=document.getElementById('summary-download').getAttribute('href');
+    const label=copyButton.getAttribute('aria-label');
+    try{
+      await copyText(decodeURIComponent(url.slice(url.indexOf(',')+1)).trimEnd());
+      copyButton.classList.add('copied');
+      copyButton.title=copyChatLabels.copied;
+    }catch(error){
+      copyButton.title=copyChatLabels.failed;
+    }
+    setTimeout(()=>{copyButton.title=label;copyButton.classList.remove('copied');},1600);
+  });
+}
 document.getElementById('preview-close').addEventListener('click',closePreview);
 document.addEventListener('keydown',event=>{{if(event.key==='Escape'&&previewBox.classList.contains('open'))closePreview();}});
 // Inline previews grow to the right; the sidebar is anchored on the right
@@ -1109,9 +1148,17 @@ def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> s
     for row in newest_rows:
         activity_date = str(row.get("updated") or row["created"])
         suffix = lang_suffix(lang)
+        badge = ""
+        if row.get("has_summary"):
+            label = html.escape(L("chat.summary_label", lang))
+            badge = (
+                f'<svg class="summary-marker" viewBox="0 0 16 16" role="img" aria-label="{label}">'
+                f'<title>{label}</title><rect x="3" y="2" width="10" height="12" rx="2"/>'
+                '<path d="M5.5 6h5m-5 3h5m-5 3H8"/></svg>'
+            )
         cards.append(
             f'<a class="conversation" href="conversations/{href(str(row["folder"]))}/chat{suffix}.html" target="chat-frame" data-date="{html.escape(activity_date, quote=True)}" data-title="{html.escape(str(row["title"]).casefold(), quote=True)}"><strong>{html.escape(str(row["title"]))}</strong>'
-            f'<span>{html.escape(activity_date.replace("T", " ")[:16])} · {row["presented_files"]} {ti("card_artifacts")} · {row["recovered_files"]} {ti("card_files")}</span></a>'
+            f'{badge}<span>{html.escape(activity_date.replace("T", " ")[:16])} · {row["presented_files"]} {ti("card_artifacts")} · {row["recovered_files"]} {ti("card_files")}</span></a>'
         )
     first_url = f'conversations/{href(str(newest_rows[0]["folder"]))}/chat{lang_suffix(lang)}.html' if newest_rows else ""
 
@@ -1132,6 +1179,8 @@ def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> s
 .links{{display:flex;gap:5px 11px;padding:2px 14px 10px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--line)}}.links a{{color:var(--muted);font-size:11px;text-decoration:none}}.links a:hover{{color:var(--ink)}}.lang-switch{{margin-left:auto;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink);padding:3px 5px;font-size:11px}}
 .conversation-list{{overflow:auto;padding:7px 7px 18px;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}}.conversation{{position:relative;display:block;color:var(--ink);text-decoration:none;padding:8px 10px 8px 25px;border-radius:8px;margin:1px 0}}.conversation[hidden]{{display:none!important}}.conversation::before{{content:"";position:absolute;left:10px;top:14px;width:5px;height:5px;border:1px solid var(--muted);border-radius:50%;opacity:.55}}.conversation:hover{{background:color-mix(in srgb,var(--surface) 65%,transparent)}}.conversation.active{{background:var(--surface-2)}}.conversation.active::before{{background:var(--accent);border-color:var(--accent);opacity:1}}.conversation strong{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:520}}.conversation span{{display:block;color:var(--muted);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.empty{{color:var(--muted);padding:15px;display:none}}
 .left-resizer{{position:relative;height:100vh;cursor:col-resize;touch-action:none;background:var(--bg)}}.left-resizer::after{{content:"";position:absolute;left:3px;top:10px;bottom:10px;width:1px;background:var(--line)}}.left-resizer:hover::after,.left-resizer.dragging::after{{width:2px;background:var(--accent)}}.viewer{{min-width:0;background:var(--bg)}}iframe{{display:block;width:100%;height:100vh;border:0;background:var(--bg)}}
+.conversation:has(.summary-marker) strong{{padding-right:19px}}
+.summary-marker{{position:absolute;right:9px;top:9px;width:15px;height:15px;fill:none;stroke:var(--accent);stroke-width:1.35;stroke-linecap:round}}
 @media(max-width:720px){{body{{grid-template-columns:1fr;overflow:auto}}.sidebar{{height:46vh}}.left-resizer{{display:none}}.viewer{{height:54vh}}.viewer iframe{{height:54vh}}}}
 </style></head><body><nav class="sidebar"><div class="sidebar-head"><div class="brand">Claude <small>RESTORED</small></div><button type="button" class="theme-toggle" id="theme-toggle" aria-label="{html.escape(ti("theme_light"), quote=True)}" title="{html.escape(ti("theme_light"), quote=True)}"><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5 8.5 8.5 0 1 0 20.5 14.4Z"/></svg><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button></div><div class="tools"><input id="search" type="search" placeholder="{html.escape(ti("search_placeholder"))}"><select id="sort"><option value="newest">{html.escape(ti("sort_newest"))}</option><option value="oldest">{html.escape(ti("sort_oldest"))}</option><option value="title">{html.escape(ti("sort_title"))}</option></select></div><div class="links"><a href="RESTORATION_NOTES.md" target="_blank">{html.escape(ti("link_description"))}</a><a href="raw/artifacts/INDEX.html" target="_blank">{html.escape(ti("link_artifacts"))}</a><a href="project_documents/" target="_blank">{html.escape(ti("link_projects"))}</a><a href="SUMMARY.json" target="_blank">{html.escape(ti("link_summary"))}</a><select class="lang-switch" id="lang-switch">{"".join(lang_options)}</select></div><div class="conversation-list" id="conversation-list">""" + "".join(cards) + f"""<div class="empty" id="empty">{html.escape(ti("empty"))}</div></div></nav><div class="left-resizer" id="left-resizer" role="separator" aria-orientation="vertical"></div><main class="viewer"><iframe name="chat-frame" id="chat-frame" src="__FIRST_CHAT__" title="{html.escape(ti("iframe_title"))}"></iframe></main><script>
 const list=document.getElementById('conversation-list'), search=document.getElementById('search'), sort=document.getElementById('sort');
@@ -1417,6 +1466,7 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
     return {
         "created": created,
         "updated": str(conversation.get("updated_at") or created),
+        "has_summary": bool(str(conversation.get("summary") or "").strip()),
         "title": conversation.get("name") or "Untitled",
         "uuid": uuid,
         "folder": dirname,
