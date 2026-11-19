@@ -672,6 +672,9 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
 
     def copy_chat_markdown() -> str:
         out = [f"# {title}"]
+        summary_text = str(conversation.get("summary") or "").strip()
+        if summary_text:
+            out.extend(["", "## Summary", "", summary_text])
         for message in conversation.get("chat_messages") or []:
             message_parts: list[str] = []
             inline_seen: set[str] = set()
