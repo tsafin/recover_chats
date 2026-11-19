@@ -622,6 +622,7 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
 .summary-card .artifact-icon-button svg{{width:16px;height:16px}}
 .summary-card:hover .artifact-hover-actions,.summary-card:focus-within .artifact-hover-actions{{opacity:1;transform:none;pointer-events:auto}}
 #summary-copy.copied{{color:#68a27b!important}}
+.message-slot{{display:flow-root;min-height:1px;scroll-margin-top:80px}}
 @media(hover:none){{.summary-card>.artifact-hover-actions{{position:absolute;margin-top:0;justify-content:flex-end}}}}
 </style><title>""", html.escape(title), "</title></head><body><div class=\"layout\"><main>"]
     parts.extend([
@@ -796,7 +797,10 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
             return f'<details class="tool-step"><summary>{t("result_prefix")} · {html.escape(name)}</summary><div class="tool-result-body markdown">{"".join(texts)}</div></details>'
         return ""
 
-    for msg_index, message in enumerate(conversation.get("chat_messages") or [], 1):
+    messages = conversation.get("chat_messages") or []
+    virtual_messages = []
+    for msg_index, message in enumerate(messages, 1):
+        message_start = len(parts)
         sender = message.get("sender")
         role = t("role_user") if sender == "human" else t("role_assistant")
         css_role = "user" if sender == "human" else "assistant"
@@ -860,6 +864,18 @@ aside{{height:100vh;overflow:auto;min-width:0;border-left:1px solid var(--line);
         for attachment in message_attachments:
             parts.append(attachment_card(attachment, str(message.get("created_at") or "")))
         parts.append("</article>")
+        if len(messages) > 40:
+            markup = "".join(parts[message_start:])
+            del parts[message_start:]
+            text_size = sum(len(str(block.get("text") or "")) for block in blocks
+                            if isinstance(block, dict) and block.get("type") == "text")
+            if not blocks:
+                text_size = len(str(message.get("text") or ""))
+            virtual_messages.append([markup, min(2000, 90 + (text_size // 75) * 23)])
+    if virtual_messages:
+        # Escaping '<' keeps even literal script end tags inside the JSON.
+        payload = json.dumps(virtual_messages, ensure_ascii=False).replace("<", "\\u003c")
+        parts.append(f'<div id="message-window"></div><script type="application/json" id="message-data">{payload}</script>')
     parts.append(f'</main><div class="right-resizer" id="right-resizer" role="separator" aria-orientation="vertical" aria-label="{html.escape(t("artifacts_title"), quote=True)}"></div><aside><section class="panel">')
     parts.append(f'<h2>{t("artifacts_title")} <span class="count">{len(artifact_rows)}</span></h2>')
     parts.append(f'<div class="artifact-toolbar"><label for="artifact-sort" class="count">{t("sort_label")}</label><select id="artifact-sort"><option value="newest">{t("sort_newest")}</option><option value="oldest">{t("sort_oldest")}</option><option value="name">{t("sort_name")}</option><option value="version">{t("sort_version")}</option></select></div>')
@@ -956,12 +972,18 @@ function finishAsideResize(event){
 }
 rightResizer.addEventListener('pointerup',finishAsideResize);rightResizer.addEventListener('pointercancel',finishAsideResize);
 // Inline artifacts and the right-hand list are two views of the same item.
-document.querySelectorAll('.locate-artifact').forEach(button=>button.addEventListener('click',()=>{
+function onButton(selector, action){
+  document.addEventListener('click',event=>{
+    const button=event.target instanceof Element && event.target.closest(selector);
+    if(button)action(button);
+  });
+}
+onButton('.locate-artifact',button=>{
   const target=artifactList.querySelector('.artifact-card[data-artifact-key="'+button.dataset.artifactKey+'"]');
   if(!target)return;
   target.scrollIntoView({behavior:'smooth',block:'center'});
   target.classList.remove('located');void target.offsetWidth;target.classList.add('located');
-}));
+});
 // Preview is moved into the selected artifact card and grows only downward.
 const previewBox=document.getElementById('preview-box'), previewIframe=document.getElementById('artifact-preview'), previewTitle=document.getElementById('preview-title'), previewMeta=document.getElementById('preview-meta'), mdPreview=document.getElementById('md-preview');
 const previewHome=previewBox.parentElement;
@@ -972,7 +994,7 @@ function closePreview(){
   previewHome.classList.remove('attachment-preview-open');
   previewHome.appendChild(previewBox);
 }
-document.querySelectorAll('.preview-button').forEach(button=>button.addEventListener('click',()=>{
+onButton('.preview-button',button=>{
   var title=button.dataset.title, isMd=button.dataset.md==='1', isText=button.dataset.text==='1';
   var card=button.closest('.artifact-card');
   var attachment=button.closest('.input-attachment-wrap');
@@ -1002,12 +1024,12 @@ document.querySelectorAll('.preview-button').forEach(button=>button.addEventList
     previewIframe.src=src;
   }
   previewBox.classList.add('open');
-}));
-document.querySelectorAll('.attachment-copy').forEach(button=>button.addEventListener('click',async()=>{
+});
+onButton('.attachment-copy',async button=>{
   var data=button.closest('.input-attachment-wrap').querySelector('.attachment-data'), value='';
   if(data){try{value=JSON.parse(data.textContent);}catch(error){console.error('Attachment copy JSON:',error);}}
   try{await copyText(value);button.classList.add('copied');setTimeout(()=>button.classList.remove('copied'),1200);}catch(error){console.error('Attachment copy:',error);}
-}));
+});
 const summaryDetails=document.getElementById('conv-summary');
 if(summaryDetails){
   const previewButton=document.getElementById('summary-preview');
@@ -1121,11 +1143,115 @@ function renderMarkdownSimple(md){
   }).join('\\n');
   return md.replace(/@@CODEBLOCK(\\d+)@@/g,(match,index)=>codeBlocks[Number(index)]||'');
 }
-// Restore scroll position after language switch
-(function(){{
-  var s=sessionStorage.getItem('restore_chat_scroll');
-  if(s!==null){{window.scrollTo(0,Number(s));sessionStorage.removeItem('restore_chat_scroll');}}
-}})();
+// Parse message markup only as it approaches the chat viewport.
+function mountMessageWindow(){
+  const container=document.getElementById('message-window');
+  if(!container)return;
+  const messages=JSON.parse(document.getElementById('message-data').textContent);
+  const mounted=new Set();
+  const openDetails=new Map();
+  const slots=[];
+  function mount(index){
+    if(mounted.has(index))return;
+    const slot=slots[index];
+    slot.innerHTML=messages[index][0];
+    slot.style.height='';
+    const open=openDetails.get(index);
+    if(open)slot.querySelectorAll('details').forEach((detail,i)=>{detail.open=open.has(i);});
+    mounted.add(index);
+  }
+  function unmount(index){
+    if(!mounted.has(index))return;
+    const slot=slots[index];
+    if(slot.contains(document.activeElement)||slot.contains(previewBox))return;
+    const open=new Set();
+    slot.querySelectorAll('details').forEach((detail,i)=>{if(detail.open)open.add(i);});
+    if(open.size)openDetails.set(index,open);else openDetails.delete(index);
+    slot.style.height=slot.getBoundingClientRect().height+'px';
+    slot.replaceChildren();
+    mounted.delete(index);
+  }
+  for(const [index,message] of messages.entries()){
+    const slot=document.createElement('div');
+    slot.className='message-slot';
+    slot.dataset.index=index;
+    slot.style.height=message[1]+'px';
+    slots.push(slot);
+  }
+  container.replaceChildren(...slots);
+  if('IntersectionObserver' in window){
+    const main=container.closest('main');
+    let root;
+    let observer;
+    function observeSlots(){
+      const nextRoot=getComputedStyle(main).overflowY==='visible'?null:main;
+      if(observer&&nextRoot===root)return;
+      observer?.disconnect();
+      root=nextRoot;
+      observer=new IntersectionObserver(entries=>{
+        for(const entry of entries){
+          const index=Number(entry.target.dataset.index);
+          if(entry.isIntersecting)mount(index);else unmount(index);
+        }
+      },{root,rootMargin:'800px 0px'});
+      slots.forEach(slot=>observer.observe(slot));
+    }
+    observeSlots();
+    // Revisit a pinned message after it loses focus or its preview closes.
+    function releaseOffscreen(){
+      const viewport=root?root.getBoundingClientRect():{top:0,bottom:window.innerHeight};
+      for(const index of mounted){
+        const rect=slots[index].getBoundingClientRect();
+        if(rect.bottom<viewport.top-800||rect.top>viewport.bottom+800)unmount(index);
+      }
+    }
+    document.addEventListener('focusout',()=>requestAnimationFrame(releaseOffscreen));
+    document.addEventListener('click',()=>requestAnimationFrame(releaseOffscreen));
+    window.addEventListener('resize',observeSlots);
+  }else{
+    slots.forEach((slot,index)=>mount(index));
+  }
+  function jumpToMessage(){
+    const match=/^#message-(\\d+)$/.exec(location.hash);
+    if(!match)return;
+    const index=Number(match[1])-1;
+    if(!slots[index])return;
+    mount(index);
+    slots[index].scrollIntoView();
+  }
+  window.addEventListener('hashchange',jumpToMessage);
+  jumpToMessage();
+  return mount;
+}
+const mountMessage=mountMessageWindow();
+const chatMain=document.querySelector('main');
+const scrollRoot=()=>getComputedStyle(chatMain).overflowY==='visible'?document.scrollingElement:chatMain;
+const messageBlocks=()=>chatMain.querySelectorAll(mountMessage?'.message-slot':'.message');
+const readingLine=()=>chatMain.querySelector('.hero').getBoundingClientRect().bottom;
+window.addEventListener('message',event=>{
+  if(event.source!==window.parent||event.data?.type!=='restore-get-position')return;
+  const blocks=[...messageBlocks()];
+  const top=readingLine();
+  const index=blocks.findIndex(block=>block.getBoundingClientRect().bottom>top);
+  const rect=blocks[index]?.getBoundingClientRect();
+  const position=rect?{index,fraction:Math.max(0,(top-rect.top)/Math.max(1,rect.height)),
+    offset:Math.max(0,rect.top-top)}:null;
+  event.source.postMessage({type:'restore-chat-position',position},'*');
+});
+const savedPosition=new URLSearchParams(location.search).get('position');
+if(savedPosition){
+  try{
+    const {index,fraction,offset}=JSON.parse(savedPosition);
+    const block=messageBlocks()[index];
+    if(block&&Number.isFinite(fraction)&&Number.isFinite(offset)){
+      mountMessage?.(index);
+      requestAnimationFrame(()=>{
+        const rect=block.getBoundingClientRect();
+        scrollRoot().scrollTop+=rect.top-readingLine()+rect.height*fraction-offset;
+      });
+    }
+  }catch(error){console.warn('Could not restore chat position',error);}
+}
 </script></body></html>""".replace("__SORT_LOCALE__", sort_locale).replace("__COPY_READY__", json.dumps(t("button_copy_chat"), ensure_ascii=False)).replace("__COPY_COPIED__", json.dumps(t("button_copy_chat_copied"), ensure_ascii=False)).replace("__COPY_FAILED__", json.dumps(t("button_copy_chat_failed"), ensure_ascii=False))
     parts.append(js_block)
     return "".join(parts)
@@ -1140,6 +1266,48 @@ def render_index(rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def chat_view_url(folder: str, lang: str) -> str:
+    return f"viewer{lang_suffix(lang)}.html?chat={quote(folder, safe='')}"
+
+
+def split_chat_page(page: str) -> tuple[str, str, str]:
+    """Separate the shared document shell and runtime from the conversation markup."""
+    head, body = page.split("</head><body>", 1)
+    markup, runtime = body.rsplit("<script>", 1)
+    return head, markup, runtime.removesuffix("</script></body></html>")
+
+
+def render_chat_viewer(lang: str) -> str:
+    head, _, runtime = split_chat_page(render_chat_html({}, [], [], [], Path("."), lang))
+    return head + f"""</head><body><script>
+const folder=new URLSearchParams(location.search).get('chat');
+if(folder && folder!=='.' && folder!=='..' && !/[\\\\/]/.test(folder)){{
+  const url=new URL('conversations/'+encodeURIComponent(folder)+'/',location.href);
+  const data=document.createElement('script');
+  data.src=new URL('chat-data.js',url).href;
+  data.onerror=()=>{{document.body.textContent='Unable to load chat-data.js';}};
+  data.onload=()=>{{
+    const chat=window.restoredChatData;
+    delete window.restoredChatData;
+    const base=document.createElement('base');
+    base.href=url.href;
+    document.head.appendChild(base);
+    document.title=chat.title;
+    document.body.innerHTML=chat.pages[{json.dumps(lang)}];
+    document.addEventListener('click',event=>{{
+      const link=event.target instanceof Element&&event.target.closest('a[href^="#"]');
+      if(link){{event.preventDefault();location.hash=link.getAttribute('href');}}
+    }});
+    startChat();
+  }};
+  document.head.appendChild(data);
+}}
+function startChat(){{
+{runtime}
+}}
+</script></body></html>"""
+
+
 def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> str:
     ti = lambda key: L(f"index.{key}", lang)
     sort_locale = L("sort_locale", lang)
@@ -1147,7 +1315,7 @@ def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> s
     newest_rows = sorted(rows, key=lambda item: (str(item.get("updated") or item["created"]), str(item["title"])), reverse=True)
     for row in newest_rows:
         activity_date = str(row.get("updated") or row["created"])
-        suffix = lang_suffix(lang)
+        folder = str(row["folder"])
         badge = ""
         if row.get("has_summary"):
             label = html.escape(L("chat.summary_label", lang))
@@ -1157,10 +1325,10 @@ def render_index_html(rows: list[dict[str, Any]], lang: str = DEFAULT_LANG) -> s
                 '<path d="M5.5 6h5m-5 3h5m-5 3H8"/></svg>'
             )
         cards.append(
-            f'<a class="conversation" href="conversations/{href(str(row["folder"]))}/chat{suffix}.html" target="chat-frame" data-date="{html.escape(activity_date, quote=True)}" data-title="{html.escape(str(row["title"]).casefold(), quote=True)}"><strong>{html.escape(str(row["title"]))}</strong>'
+            f'<a class="conversation" href="{chat_view_url(folder, lang)}" target="chat-frame" data-folder="{href(folder)}" data-date="{html.escape(activity_date, quote=True)}" data-title="{html.escape(str(row["title"]).casefold(), quote=True)}"><strong>{html.escape(str(row["title"]))}</strong>'
             f'{badge}<span>{html.escape(activity_date.replace("T", " ")[:16])} · {row["presented_files"]} {ti("card_artifacts")} · {row["recovered_files"]} {ti("card_files")}</span></a>'
         )
-    first_url = f'conversations/{href(str(newest_rows[0]["folder"]))}/chat{lang_suffix(lang)}.html' if newest_rows else ""
+    first_url = chat_view_url(str(newest_rows[0]["folder"]), lang) if newest_rows else ""
 
     # Language switcher options
     lang_options = []
@@ -1220,8 +1388,7 @@ leftResizer.addEventListener('pointerup',finishSidebarResize);leftResizer.addEve
 function update(){{const q=search.value.trim().toLocaleLowerCase('{sort_locale}'); conversations.forEach(x=>x.hidden=q&&!x.dataset.title.includes(q)); const visible=conversations.filter(x=>!x.hidden); visible.sort((a,b)=>sort.value==='title'?a.dataset.title.localeCompare(b.dataset.title,'{sort_locale}'):(sort.value==='oldest'?a.dataset.date.localeCompare(b.dataset.date):b.dataset.date.localeCompare(a.dataset.date))).forEach(x=>list.appendChild(x)); document.getElementById('empty').style.display=visible.length?'none':'block';}}
 search.addEventListener('input',update);sort.addEventListener('change',update);update();
 conversations.forEach(link=>link.addEventListener('click',()=>{{conversations.forEach(x=>x.classList.remove('active'));link.classList.add('active');
-  var m=link.getAttribute('href').match(/conversations\/([^/]+)\//);
-  if(m) sessionStorage.setItem('restore_active_chat',m[1]);
+  sessionStorage.setItem('restore_active_chat',link.dataset.folder);
 }}));
 if(conversations.length) conversations[0].classList.add('active');
 // Language switcher: save state, set cookie, redirect to localized index
@@ -1232,13 +1399,27 @@ document.getElementById('lang-switch').addEventListener('change',function(){{
   var active=document.querySelector('.conversation.active');
   var chatParam='';
   if(active){{
-    var m=active.getAttribute('href').match(/conversations\/([^/]+)\//);
-    if(m) chatParam='?chat='+encodeURIComponent(m[1]);
+    chatParam='?chat='+encodeURIComponent(active.dataset.folder);
   }}
   sessionStorage.setItem('restore_sidebar_scroll',document.querySelector('.conversation-list').scrollTop);
   var suffix=lang==='{DEFAULT_LANG}'?'':'_'+lang;
   var base=document.location.pathname.replace(/(_(en|zh|ru))?\.html$/,'');
-  document.location.href=base+suffix+'.html'+chatParam;
+  const next=new URL(base+suffix+'.html'+chatParam,location.href);
+  let timer;
+  function navigate(position){{
+    clearTimeout(timer);
+    window.removeEventListener('message',receivePosition);
+    if(position&&chatParam)next.searchParams.set('position',JSON.stringify(position));
+    location.href=next.href;
+  }}
+  function receivePosition(event){{
+    if(event.source===chatFrame.contentWindow&&event.data?.type==='restore-chat-position'){{
+      navigate(event.data.position);
+    }}
+  }}
+  window.addEventListener('message',receivePosition);
+  timer=setTimeout(()=>navigate(null),300);
+  chatFrame.contentWindow.postMessage({{type:'restore-get-position'}},'*');
 }});
 // Restore selected conversation from ?chat= param or sessionStorage
 (function(){{
@@ -1255,19 +1436,14 @@ document.getElementById('lang-switch').addEventListener('change',function(){{
     // Find the conversation link by folder name
     var link=null;
     conversations.forEach(function(c){{
-      var m=c.getAttribute('href').match(/conversations\/([^/]+)\//);
-      if(m&&m[1]===chatFolder) link=c;
+      if(c.dataset.folder===chatFolder || decodeURIComponent(c.dataset.folder)===chatFolder) link=c;
     }});
     if(link){{
       conversations.forEach(x=>x.classList.remove('active'));
       link.classList.add('active');
-      // Update iframe src to the localized chat page
-      var chatFrame=document.getElementById('chat-frame');
-      var baseChat=link.getAttribute('href').replace(/(_(en|zh|ru))?\.html$/,'');
-      var lang=document.documentElement.lang||'{DEFAULT_LANG}';
-      var langCode=lang.startsWith('zh')?'zh':lang.startsWith('en')?'en':'ru';
-      var suffix=langCode==='{DEFAULT_LANG}'?'':'_'+langCode;
-      chatFrame.src=baseChat+suffix+'.html';
+      const viewerUrl=new URL(link.href);
+      if(params.has('position'))viewerUrl.searchParams.set('position',params.get('position'));
+      chatFrame.src=viewerUrl.href;
       // Scroll the link into view
       link.scrollIntoView({{block:'nearest'}});
       sessionStorage.setItem('restore_active_chat',chatFolder);
@@ -1443,9 +1619,15 @@ def restore_conversation(conversation: dict[str, Any], root: Path) -> dict[str, 
 
     json_dump(conv_dir / "recovered_files.json", recovered_manifest)
     json_dump(conv_dir / "presented_files.json", presented)
+    pages = {}
     for lang in AVAILABLE_LANGS:
         chat_html = render_chat_html(conversation, recovered_manifest, presented, attachment_records, conv_dir, lang)
-        (conv_dir / f"chat{lang_suffix(lang)}.html").write_text(chat_html, encoding="utf-8")
+        _, pages[lang], _ = split_chat_page(chat_html)
+    chat_data = {"title": conversation.get("name") or "Untitled", "pages": pages}
+    (conv_dir / "chat-data.js").write_text(
+        "window.restoredChatData = " + json.dumps(chat_data, ensure_ascii=True) + ";\n",
+        encoding="utf-8",
+    )
     if edit_failures:
         json_dump(conv_dir / "unapplied_edits.json", edit_failures)
     office_presented = sum(Path(str(item.get("file_path") or "")).suffix.lower() in OFFICE_EXTENSIONS for item in presented)
@@ -1547,6 +1729,7 @@ def restore_export(source: Path, output: Path) -> dict[str, Any]:
     json_dump(output / "restoration_report.json", rows)
     (output / "INDEX.md").write_text(render_index(rows), encoding="utf-8")
     for lang in AVAILABLE_LANGS:
+        (output / f"viewer{lang_suffix(lang)}.html").write_text(render_chat_viewer(lang), encoding="utf-8")
         (output / f"INDEX{lang_suffix(lang)}.html").write_text(render_index_html(rows, lang), encoding="utf-8")
     copy_export_sections(raw_dir, output)
 

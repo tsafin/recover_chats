@@ -36,8 +36,9 @@ from the logs. Hashing is optional future work, not required for correctness.
 ## i18n
 
 - Locale files: `locales/*.json` (ru, zh, en)
-- Default language: `ru` → `chat.html`, `INDEX.html`
-- Other languages: `chat_zh.html`, `INDEX_en.html`, etc.
+- Default language: `ru` → `viewer.html`, `INDEX.html`
+- Other languages: `viewer_zh.html`, `INDEX_en.html`, etc.
+- Each conversation provides `chat-data.js` for the shared viewer, including under `file://`.
 - Language switcher: sets `restore_lang` cookie, preserves selected chat via `?chat=<folder>` URL param
 - Chat scroll position preserved across language switches
 - To add a language: drop `locales/<code>.json`, re-run `restore_export.py`

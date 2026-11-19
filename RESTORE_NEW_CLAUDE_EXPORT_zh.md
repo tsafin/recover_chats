@@ -246,7 +246,7 @@ python recover_chats\restore_export.py --source . --output restored_export_new
 5. 为每个对话创建独立目录。
 6. 从 `Write`、`Edit`、`create_file`、`str_replace`、heredoc 以及受支持的 shell 命令中还原文件状态。
 7. 保存命令、内嵌脚本和提取出的附件文本。
-8. 生成 `chat.md`、`chat.html`、JSON 清单以及总的 `INDEX.html`。
+8. 生成 `chat.md`、`chat-data.js`、JSON 清单、索引和共享查看器。查看器无需 HTTP 服务器即可加载所选对话。
 9. 还原项目文档和 Claude Artifacts 目录（如果导出中存在）。
 
 正常成功的返回码为 `0`。返回码 `2` 表示解包后未找到 `raw/conversations.json`。
@@ -527,7 +527,7 @@ restored_export_new/
 ├── project_documents/
 └── conversations/
     └── <date>_<title>_<uuid>/
-        ├── chat.html
+        ├── chat-data.js
         ├── chat.md
         ├── conversation.json
         ├── README.md

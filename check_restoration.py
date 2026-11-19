@@ -8,20 +8,32 @@ import sys
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 
 class Links(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.hrefs: list[tuple[str, bool]] = []
+        self.message_payloads: list[str] = []
+        self._in_message_data = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "script" and dict(attrs).get("id") == "message-data":
+            self._in_message_data = True
         if tag == "a":
             attributes = dict(attrs)
             for name, value in attrs:
                 if name == "href" and value:
                     self.hrefs.append((value, attributes.get("data-original-reference") == "true"))
+
+    def handle_data(self, data: str) -> None:
+        if self._in_message_data:
+            self.message_payloads.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script":
+            self._in_message_data = False
 
 
 def validate_restoration(root: Path) -> dict[str, object]:
@@ -30,11 +42,28 @@ def validate_restoration(root: Path) -> dict[str, object]:
     broken: list[dict[str, str]] = []
     links = 0
     html_files = list(root.glob("INDEX*.html")) + [root / "raw" / "artifacts" / "INDEX.html"]
-    html_files.extend(root.glob("conversations/*/chat*.html"))
+    data_files = sorted(root.glob("conversations/*/chat-data.js"))
+    html_files.extend(root.glob("viewer*.html"))
+    if not data_files:
+        html_files.extend(root.glob("conversations/*/chat*.html"))
     html_files = [path for path in html_files if path.exists()]
-    for html_file in html_files:
+    def pages():
+        for path in html_files:
+            yield path, path.read_text(encoding="utf-8", errors="replace")
+        prefix = "window.restoredChatData = "
+        for path in data_files:
+            source = path.read_text(encoding="utf-8").strip()
+            if not source.startswith(prefix) or not source.endswith(";"):
+                raise ValueError(f"Invalid chat data: {path}")
+            for markup in json.loads(source[len(prefix):-1])["pages"].values():
+                yield path, markup
+
+    for html_file, markup in pages():
         parser = Links()
-        parser.feed(html_file.read_text(encoding="utf-8", errors="replace"))
+        parser.feed(markup)
+        for payload in parser.message_payloads:
+            for markup, _height in json.loads(payload):
+                parser.feed(markup)
         for raw_href, original_reference in parser.hrefs:
             if original_reference:
                 continue
@@ -54,6 +83,13 @@ def validate_restoration(root: Path) -> dict[str, object]:
                 continue
             if not target.exists():
                 broken.append({"html": str(html_file.relative_to(root)), "href": raw_href, "reason": "missing"})
+            elif target.parent == root and target.name.startswith("viewer") and target.suffix == ".html":
+                folders = parse_qs(parsed.query).get("chat", [])
+                if (len(folders) != 1 or folders[0] in {".", ".."}
+                        or "/" in folders[0] or "\\" in folders[0]
+                        or not (root / "conversations" / folders[0] / "chat-data.js").is_file()):
+                    broken.append({"html": str(html_file.relative_to(root)), "href": raw_href,
+                                   "reason": "missing or invalid chat data"})
 
     office = [path for path in root.glob("conversations/*/regenerated/*") if path.suffix.lower() in {".pptx", ".docx", ".xlsx"}]
     corrupt: list[dict[str, str]] = []
@@ -67,6 +103,7 @@ def validate_restoration(root: Path) -> dict[str, object]:
             corrupt.append({"file": str(path.relative_to(root)), "reason": f"{type(exc).__name__}: {exc}"})
     result = {
         "html_files": len(html_files),
+        "chat_data_files": len(data_files),
         "local_links": links,
         "broken_links": broken,
         "office_files": len(office),

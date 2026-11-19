@@ -285,7 +285,7 @@ python recover_chats\restore_export.py --source . --output restored_export_new
 5. Для каждого диалога создаёт отдельный каталог.
 6. Восстанавливает состояния файлов из операций `Write`, `Edit`, `create_file`, `str_replace`, heredoc и поддерживаемых shell-команд.
 7. Сохраняет команды, inline-скрипты и извлечённый текст вложений.
-8. Генерирует `chat.md`, `chat.html`, JSON-манифесты и общий `INDEX.html`.
+8. Генерирует `chat.md`, `chat-data.js`, JSON-манифесты, индекс и общий просмотрщик.
 9. Восстанавливает проектные документы и каталог Claude Artifacts, если они есть в экспорте.
 
 Нормальный успешный код возврата — `0`. Код `2` означает, что после распаковки не найден `raw/conversations.json`.
@@ -555,7 +555,7 @@ HTTP-сервер следует привязывать только к loopback
 
 ### Как это работает
 
-- `restore_export.py` генерирует отдельный HTML-файл для каждого языка: `chat.html` (по умолчанию), `chat_en.html`, `chat_zh.html` и `INDEX.html`, `INDEX_en.html`, `INDEX_zh.html`.
+- `restore_export.py` генерирует индекс и общий просмотрщик для каждого языка: `INDEX.html` и `viewer.html` для русского, с суффиксами `_en` и `_zh` для других языков. Просмотрщик загружает `chat-data.js` выбранного чата без HTTP-сервера.
 - В сайдбаре `INDEX.html` есть переключатель языка (выпадающий список).
 - При смене языка браузер сохраняет выбранное значение в cookie `restore_lang` (срок 1 год) и перенаправляет на соответствующую HTML-страницу.
 - Выбранный диалог и позиция скролла сохраняются при переключении языка: имя папки диалога передаётся через URL-параметр `?chat=<folder>`, позиция скролла сайдбара — через `sessionStorage`.
@@ -611,7 +611,7 @@ restored_export_new/
 ├── project_documents/
 └── conversations/
     └── <date>_<title>_<uuid>/
-        ├── chat.html
+        ├── chat-data.js
         ├── chat.md
         ├── conversation.json
         ├── README.md
